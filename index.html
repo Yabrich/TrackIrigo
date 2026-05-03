@@ -1,0 +1,113 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Track'Irigo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="icon_site.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+  <body>
+  <div class="site-shell">
+    <header class="top-bar">
+      <div class="top-bar__brand">
+        <img src="icon_site.png" alt="Logo Track'Irigo" class="top-bar__logo" />
+        <span class="top-bar__title">Track'Irigo</span>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="panel panel--wide panel--carousel">
+        <div class="carousel" id="home-carousel" aria-roledescription="carousel">
+          <div class="carousel__viewport">
+            <div class="carousel__track" id="carousel-track"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel--intro" aria-labelledby="panel-accueil-title">
+        <div class="panel__heading panel__heading--centered">
+          <div class="panel__eyebrow">Accueil</div>
+          <h1 id="panel-accueil-title" class="panel__title panel__title--centered">Bienvenue sur Track'Irigo</h1>
+        </div>
+        <div class="intro-copy">
+          <p class="panel__text">
+            Track'Irigo est un site dédié au suivi temps réel du réseau Irigo à Angers. Il permet de visualiser les positions en temps réels des tramways et bus en service, ainsi que de suivre l'info trafic par ligne.
+          </p>
+          <p class="panel__text">
+            Créé et développé par Yabrich. <a href="https://github.com/Yabrich">GitHub</a>
+          </p>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="panel-stations-title">
+        <div class="panel__heading panel__heading--centered">
+          <div>
+            <div class="panel__eyebrow">Stations</div>
+            <h2 id="panel-stations-title" class="panel__title panel__title--sm panel__title--centered">Stations</h2>
+          </div>
+        </div>
+        <p class="panel__text panel__text--centered">
+          Recherchez un arrêt afin d'accéder aux prochains passages en temps réel. La recherche fonctionne par nom d'arrêt et par numéro de ligne. Les deux étant combinables.
+        </p>
+
+        <label class="search-field" for="station-search">
+          <span class="sr-only">Nom d'arrêt</span>
+          <input
+            id="station-search"
+            name="station-search"
+            type="search"
+            placeholder="Rechercher un arrêt ou une ligne"
+            autocomplete="off"
+          />
+        </label>
+
+        <div class="panel__actions panel__actions--centered">
+          <a class="text-button station-list-link" href="stations/">Voir la liste complète des stations</a>
+          <span class="panel__meta" id="station-count">Chargement...</span>
+        </div>
+
+        <div class="station-results" id="station-results" aria-live="polite"></div>
+      </section>
+
+      <section class="panel panel--wide" aria-labelledby="panel-lignes-title">
+        <div class="panel__header">
+          <div>
+            <div class="panel__eyebrow">Lignes</div>
+            <h2 id="panel-lignes-title" class="panel__title panel__title--sm">Informations Trafic</h2>
+          </div>
+        </div>
+        <div id="line-categories" class="line-categories"></div>
+      </section>
+
+      <section class="panel panel--wide" aria-labelledby="panel-carte-title">
+        <div class="panel__header">
+          <div>
+            <div class="panel__eyebrow">Carte</div>
+            <h2 id="panel-carte-title" class="panel__title panel__title--sm">Carte en temps réel</h2>
+          </div>
+          <a class="button-link" href="map/">Plein écran</a>
+        </div>
+
+        <div class="map-preview">
+          <iframe
+            class="map-preview__frame"
+            src="map/"
+            title="Carte Track'Irigo"
+            loading="lazy"
+          ></iframe>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <span>
+        ©Yabrich 2025-2026<br>
+        Ce site n'est en aucun cas affilié à Irigo, ni à Angers Loire Métropole. Ces noms déposés appartiennent à leurs propriétaires respectifs.<br>
+        Les données en temps réel (informations trafic et prochains passages) proviennent de <a href="https://transport.data.gouv.fr/datasets/angers-loire-metropole-reseau-irigo-gtfs-gtfs-rt-siri" target="_blank" rel="noreferrer">l’Open-Data Réseau urbain Irigo</a>
+      </span>
+    </footer>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

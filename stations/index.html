@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stations - Track'Irigo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="../icon_site.png" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="stations.css" />
+</head>
+<body>
+  <div class="site-shell">
+    <header class="top-bar">
+      <a class="top-bar__brand" href="../">
+        <img src="../icon_site.png" alt="Logo Track'Irigo" class="top-bar__logo" />
+        <span class="top-bar__title">Track'Irigo</span>
+      </a>
+      <a class="button-link" href="../">Accueil</a>
+    </header>
+
+    <main class="stations-page">
+      <section class="stations-heading" aria-labelledby="stations-title">
+        <div>
+          <div class="panel__eyebrow">Stations</div>
+          <h1 id="stations-title" class="stations-title">Liste complète des arrêts</h1>
+        </div>
+        <span class="panel__meta" id="station-page-count">Chargement...</span>
+      </section>
+
+      <label class="search-field stations-search" for="station-page-search">
+        <span class="sr-only">Rechercher un arrêt ou une ligne</span>
+        <input
+          id="station-page-search"
+          name="station-page-search"
+          type="search"
+          placeholder="Rechercher un arrêt ou une ligne"
+          autocomplete="off"
+        />
+      </label>
+
+      <section class="station-directory" id="station-directory" aria-live="polite"></section>
+    </main>
+
+    <footer class="site-footer">
+      <span>
+        ©Yabrich 2025-2026<br>
+        Ce site n'est en aucun cas affilié à Irigo, ni à Angers Loire Métropole.
+      </span>
+    </footer>
+  </div>
+
+  <script type="module" src="index.js"></script>
+</body>
+</html>

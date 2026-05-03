@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Track'Irigo - Ligne 7</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="../icon_site.png" />
+  <link rel="stylesheet" href="line.css" />
+</head>
+<body>
+  <header class="top-bar">
+    <div class="top-bar__brand">
+      <a href="../" aria-label="Retour à l'accueil">
+        <img src="../icon_site.png" alt="Logo Track'Irigo" class="top-bar__logo" />
+      </a>
+      <span class="top-bar__title">Track'Irigo</span>
+    </div>
+    <a class="top-bar__link" href="../">Accueil</a>
+  </header>
+
+  <main class="page">
+    <section class="hero" aria-labelledby="line-title">
+      <div class="hero__line-chip">
+        <img id="line-logo" class="hero__line-logo" src="../img/lignes/7.svg" alt="Ligne 7" />
+      </div>
+      <div class="hero__destination-banner">
+        <h1 id="line-title" class="hero__title">Ligne 7</h1>
+        <p class="hero__subtitle">
+          MONTREUIL-JUIGNÉ Béné <img src="/img/double_fleche.svg" alt="Double flèche"> ST-SYLVAIN St-Aubin La Salle
+        </p>
+      </div>
+    </section>
+
+    <section class="layout">
+      <section class="panel" aria-labelledby="traffic-panel-title">
+        <div class="traffic-header">
+          <div class="traffic-panel-heading">
+            <h2 id="traffic-panel-title" class="panel__title">Informations trafic</h2>
+            <img id="traffic-panel-line-logo" class="traffic-panel-heading__logo" src="../img/lignes/7.svg" alt="Ligne 7" />
+          </div>
+          <div id="line-last-updated" class="traffic-header__meta">Chargement...</div>
+        </div>
+        <div id="line-traffic-list" class="traffic-list"></div>
+      </section>
+
+      <aside class="panel">
+        <h2 class="panel__title">Plan de la ligne</h2>
+        <figure id="line-plan-figure" class="plan-figure is-hidden">
+          <img id="line-plan-image" class="plan-figure__image" src="" alt="" />
+        </figure>
+      </aside>
+
+      <section class="panel" aria-labelledby="line-map-title">
+        <div class="panel__header">
+          <h2 id="line-map-title" class="panel__title">Carte de la ligne</h2>
+          <a class="button-link" href="../map/?line=7" target="_blank" rel="noreferrer">Plein écran</a>
+        </div>
+        <div class="map-preview">
+          <iframe class="map-preview__frame" src="../map/?line=7" title="Carte de la ligne 7" loading="lazy"></iframe>
+        </div>
+      </section>
+    </section>
+  </main>
+    <footer class="site-footer">
+      <span>
+        ©Yabrich 2025-2026<br>
+        Ce site n'est en aucun cas affilié à Irigo, ni à Angers Loire Métropole. Ces noms déposés appartiennent à leurs propriétaires respectifs.<br>
+        Les données en temps réel (informations trafic et prochains passages) proviennent de <a href="https://transport.data.gouv.fr/datasets/angers-loire-metropole-reseau-irigo-gtfs-gtfs-rt-siri" target="_blank" rel="noreferrer">l’Open-Data Réseau urbain Irigo</a>
+      </span>
+    </footer>
+
+  <script>
+    window.TRACK_IRIGO_LINE_PAGE = { lineId: '7' };
+  </script>
+  <script src="line.js"></script>
+</body>
+</html>

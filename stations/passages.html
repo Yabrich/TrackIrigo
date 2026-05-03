@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Prochains passages - Track'Irigo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="../icon_site.png" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="stations.css" />
+</head>
+<body>
+  <div class="site-shell">
+    <header class="top-bar">
+      <a class="top-bar__brand" href="../" aria-label="Retour à l'accueil">
+        <img src="../icon_site.png" alt="Logo Track'Irigo" class="top-bar__logo" />
+        <span class="top-bar__title">Track'Irigo</span>
+      </a>
+      <a class="button-link" href="./">Liste des arrêts</a>
+    </header>
+
+    <main class="passages-page">
+      <section class="passages-screen">
+        <header class="passages-header">
+          <div>
+            <div class="panel__eyebrow">Prochains passages</div>
+            <h1 id="passages-stop-title">Chargement...</h1>
+          </div>
+          <div class="passages-header__meta">
+            <span id="passages-clock">--:--</span>
+            <span>Temps d'attente en minutes</span>
+          </div>
+        </header>
+
+        <section class="passages-list" id="passages-list" aria-live="polite">
+          <div class="passages-state">Chargement des prochains passages...</div>
+        </section>
+
+        <section class="passages-map" aria-label="Carte de l'arrêt">
+          <iframe
+            id="passages-map-frame"
+            class="passages-map__frame"
+            title="Carte de l'arrêt"
+            loading="lazy"
+          ></iframe>
+        </section>
+
+        <footer class="passages-note">
+          <span>* Horaire théorique</span>
+          <span id="passages-updated">Mise à jour en cours</span>
+        </footer>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>
+        ©Yabrich 2025-2026<br>
+        Ce site n'est en aucun cas affilié à Irigo, ni à Angers Loire Métropole. Ces noms déposés appartiennent à leurs propriétaires respectifs.<br>
+        Les données en temps réel (informations trafic et prochains passages) proviennent de <a href="https://transport.data.gouv.fr/datasets/angers-loire-metropole-reseau-irigo-gtfs-gtfs-rt-siri" target="_blank" rel="noreferrer">l’Open-Data Réseau urbain Irigo</a>
+      </span>
+    </footer>
+  </div>
+
+  <script type="module" src="passages.js"></script>
+</body>
+</html>
