@@ -1473,8 +1473,8 @@ async function chargerVehicules() {
   let trackedMarker = null;
   let selectedVehicleStillVisible = false;
   try {
-    //const resp = await fetch('https://web-production-c4b0.up.railway.app/irigo.json');
-    const resp = await fetch('http://localhost:5000/irigo.json');
+    const resp = await fetch('https://web-production-c4b0.up.railway.app/irigo.json');
+    //const resp = await fetch('http://localhost:5000/irigo.json');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const payload = await resp.json();
     const data = Array.isArray(payload)

@@ -494,8 +494,8 @@ async function loadStationsV2() {
 
 async function loadTrafficInfo() {
   try {
-    //const response = await fetch('https://web-production-c4b0.up.railway.app/irigo.json');
-    const response = await fetch('http://localhost:5000/irigo.json');
+    const response = await fetch('https://web-production-c4b0.up.railway.app/irigo.json');
+    //const response = await fetch('http://localhost:5000/irigo.json');
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }

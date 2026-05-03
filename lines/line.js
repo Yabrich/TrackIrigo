@@ -207,7 +207,7 @@ function renderTrafficList(alerts) {
 
 async function loadTraffic() {
   try {
-    const response = await fetch('../irigo.json');
+    const response = await fetch('https://web-production-c4b0.up.railway.app/irigo.json');
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
