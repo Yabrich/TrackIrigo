@@ -2,6 +2,7 @@ const DATA_PATHS = {
   stops: 'map/stops.txt',
   trips: 'map/trips.txt',
   stopTimes: 'map/stop_times.txt',
+  realtime: 'https://web-production-c4b0.up.railway.app/irigo.json',
   realtimeFallback: 'irigo.json'
 };
 
@@ -420,7 +421,8 @@ export function stationMatchesQuery(station, query) {
 
 async function fetchRealtimePayload() {
   const urls = [
-    'http://localhost:5000/irigo.json',
+    DATA_PATHS.realtime,
+    // 'http://localhost:5000/irigo.json', // source locale pour le développement
     new URL(DATA_PATHS.realtimeFallback, import.meta.url).href
   ];
   let lastError = null;

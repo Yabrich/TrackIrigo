@@ -41,7 +41,7 @@ const lineColorByRouteKey = {
 const effectPresentation = {
   NO_SERVICE: { label: 'Interruption', chipClass: 'traffic-effect-tag--danger', emoji: '❌', trafficType: 'no-service' },
   REDUCED_SERVICE: { label: 'Service réduit', chipClass: 'traffic-effect-tag--warning', emoji: '⚠️', trafficType: 'warning' },
-  SIGNIFICANT_DELAYS: { label: 'Retards importants', chipClass: 'traffic-effect-tag--warning', emoji: '⚠️', trafficType: 'warning' },
+  SIGNIFICANT_DELAYS: { label: 'Retards importants', chipClass: 'traffic-effect-tag--warning', emoji: '🕘', trafficType: 'warning' },
   DETOUR: { label: 'Déviation', chipClass: 'traffic-effect-tag--detour', emoji: '🚧', trafficType: 'detour' },
   ADDITIONAL_SERVICE: { label: 'Service additionnel', chipClass: 'traffic-effect-tag--info', emoji: 'ℹ️', trafficType: 'warning' },
   MODIFIED_SERVICE: { label: 'Service modifié', chipClass: 'traffic-effect-tag--info', emoji: 'ℹ️', trafficType: 'warning' },
