@@ -1,0 +1,39 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_color,route_text_color
+01,IRIGO,1,TRÉLAZÉ Quantinière - ANGERS Lorraine,,3,008E8C,FFFFFF
+02,IRIGO,2,BEAUCOUZÉ Haute Roche - ST-BARTHÉLEMY Venaiserie,,3,9B1670,FFFFFF
+03,IRIGO,3,MÛRS-ÉRIGNÉ Soland - AVRILLÉ Adézière,,3,F18700,FFFFFF
+04,IRIGO,4,BEAUCOUZÉ L'Hoirie - ANGERS Parc Expo,,3,009EE1,FFFFFF
+05,IRIGO,5,ANGERS AquaVita sens b - ANGERS AquaVita sens a,,3,FFDD00,000000
+06,IRIGO,6,BOUCHEMAINE Chantourteau - ANGERS CHU-Hôpital,,3,291F6C,FFFFFF
+07,IRIGO,7,MONTREUIL-JUIGNÉ Béné - ST-SYLVAIN St-Aubin La Salle,,3,AE0F0A,FFFFFF
+08,IRIGO,8,STE-GEMMES Roche Morna - LES PONTS-DE-CÉ Moulin Marcille / Floriloire / Sorges,,3,E50076,FFFFFF
+09,IRIGO,9,LES PONTS-DE-CÉ Moulin Marcille - ÉCOUFLANT Éventard,,3,E94F35,FFFFFF
+10,IRIGO,10,TRÉLAZÉ St-Lézin / Gare - ANGERS Provins,,3,7263A9,FFFFFF
+11,IRIGO,11,ANGERS Lorraine - ANGERS Parc Expo,,3,7B5C4D,FFFFFF
+12,IRIGO,12,ÉCOUFLANT Veillère - ANGERS Monplaisir,,3,127C29,FFFFFF
+30,IRIGO,30,BAUNÉ Louise Michel / SARRIGNÉ Les Plantes - ANGERS Hôtel de Ville,,3,E6007E,FFFFFF
+31,IRIGO,31,BRIOLLAY Vérigné / SOUCELLES Stade - ANGERS Hôtel de Ville,,3,008530,FFFFFF
+32,IRIGO,32,SOUCELLES L'Hermitage - ANGERS Hôtel de Ville,,3,0063AF,FFFFFF
+33,IRIGO,33,FENEU ZA Feneu / Croix de Beauvais - ANGERS Le Quai,,3,951B81,FFFFFF
+34,IRIGO,34,PRUILLÉ Bois des Dames - ANGERS Le Quai / ANGERS Terra Botanica,,3,F39200,FFFFFF
+35,IRIGO,35,ST-LÉGER La Coudre / Les Essarts - ANGERS Le Quai,,3,00A6E2,FFFFFF
+36,IRIGO,36,ST-MARTIN Beau Soleil - ANGERS Le Quai,,3,D2091E,FFFFFF
+37,IRIGO,37,ECUILLÉ Mairie - ANGERS Le Quai,,3,9CA61F,FFFFFF
+38,IRIGO,38,ST-CLÉMENT Moulin - ANGERS Le Quai,,3,008E8C,FFFFFF
+39,IRIGO,39,BÉHUARD Bourg / STE-GEMMES Le Fresne - ANGERS Gare routière Sémard,,3,E84E0F,FFFFFF
+41,IRIGO,41,SOULAINES Haute-Marzelle - ANGERS Gare routière Esplanade,,3,DEA600,FFFFFF
+42,IRIGO,42,ST-MATHURIN Grand Chemin / St-Mathurin Mairie - ANGERS Gare routière Esplanade,,3,291F6C,FFFFFF
+A,IRIGO,A,Roseraie - Avrillé-Ardenne,,0,E30613,FFFFFF
+NavM,IRIGO,NavM,ANGERS Navette Marché,,3,DEDC03,000000
+20,IRIGO,E20,BEAUCOUZÉ L'Atoll - ANGERS Gares Papin,,3,E7343F,FFFFFF
+21,IRIGO,E21,MONTREUIL-JUIGNÉ Domaine du Val - ANGERS Les Gares,,3,95C11F,FFFFFF
+22,IRIGO,E22,BOUCHEMAINE Chantourteau - ANGERS Les Gares,,3,C94191,FFFFFF
+23,IRIGO,E23,MÛRS-ÉRIGNÉ Hauts-de-Mûrs - ANGERS Hôtel de Ville,,3,F08046,FFFFFF
+24,IRIGO,E24,CORNÉ Royale - ANGERS Hôtel de Ville,,3,00A7A7,FFFFFF
+40,IRIGO,40,CORNÉ Royale - ANGERS Gare routière Esplanade / Saumuroise / TRÉLAZÉ Gare,,3,7263A9,FFFFFF
+B,IRIGO,B,Monplaisir - Belle-Beille Campus,,0,00569D,FFFFFF
+C,IRIGO,C,Roseraie - Belle-Beille Campus,,0,379E32,FFFFFF
+301,IRIGO,301,ESAT Brunelleries,,3,484F54,FFFFFF
+302,IRIGO,302,ESAT Bejonnières,,3,484F54,FFFFFF
+Tbus,IRIGO,Tbus,Roseraie / Belle-Beille Campus - Avrillé-Ardenne / Monplaisir,,3,E6007E,FFFFFF
+25,IRIGO,E25,ST-SYLVAIN Chêne Vert - ANGERS Hôtel de Ville,Spécial Debussy,3,F9B000,FFFFFF

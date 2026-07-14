@@ -312,7 +312,7 @@ function normalizeCarouselImageList(entries) {
 
   return entries
     .map(entry => String(entry || '').trim())
-    .filter(entry => entry && /\.(avif|gif|jpe?g|png|webp)$/i.test(entry))
+    .filter(entry => entry && /\.(avif|gif|jpeg|png|webp)$/i.test(entry))
     .map(entry => entry.startsWith('img/') ? entry : `img/carousel/${entry}`);
 }
 

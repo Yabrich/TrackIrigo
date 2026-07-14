@@ -1482,6 +1482,10 @@ async function chargerVehicules() {
       : Array.isArray(payload?.vehicles)
         ? payload.vehicles
         : [];
+    const noVehiclesBanner = document.getElementById('no-vehicles-banner');
+    if (noVehiclesBanner) {
+      noVehiclesBanner.classList.toggle('is-hidden', data.length > 0);
+    }
     const routeCounts = new Map();
     data.forEach(v => {
       const routeKey = normalizeRouteId(v.route_id);
@@ -1594,6 +1598,10 @@ async function chargerVehicules() {
     }
   } catch (e) {
     console.warn('Impossible de charger les véhicules :', e);
+    const noVehiclesBanner = document.getElementById('no-vehicles-banner');
+    if (noVehiclesBanner) {
+      noVehiclesBanner.classList.remove('is-hidden');
+    }
   }
 }
 
