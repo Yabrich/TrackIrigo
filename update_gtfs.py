@@ -4,7 +4,8 @@
 
 Télécharge https://chouette.enroute.mobi/api/v1/datas/Irigo/gtfs.zip UNIQUEMENT
 si le flux distant a changé (comparaison via l'en-tête HTTP ETag / Last-Modified),
-puis extrait les fichiers voulus (stop_times.txt, trips.txt) dans le dossier /map.
+puis extrait les fichiers voulus (stop_times.txt, trips.txt, shapes.txt, ...) dans le
+dossier /map.
 
 Conçu pour être lancé périodiquement (Planificateur de tâches Windows). Grâce à
 la requête conditionnelle, un lancement ne télécharge rien tant qu'il n'y a pas
@@ -16,6 +17,7 @@ import io
 import json
 import os
 import sys
+import time
 import zipfile
 import urllib.request
 import urllib.error
@@ -30,7 +32,15 @@ LOG_FILE = os.path.join(SCRIPT_DIR, "update_gtfs.log")
 
 # Fichiers présents dans le zip à extraire dans /map.
 # Ajouter ici "stops.txt", "routes.txt", etc. si besoin de les synchroniser aussi.
-FILES_TO_EXTRACT = ["stop_times.txt", "trips.txt", "stops.txt", "routes.txt"]
+FILES_TO_EXTRACT = [
+    "stop_times.txt",
+    "trips.txt",
+    "stops.txt",
+    "routes.txt",
+    "shapes.txt",
+    "calendar.txt",
+    "calendar_dates.txt",
+]
 
 
 def log(msg):
@@ -54,6 +64,29 @@ def load_state():
 def save_state(state):
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2, ensure_ascii=False)
+
+
+def write_atomic(dest, content, attempts=5):
+    """Ecrit puis remplace de facon atomique, avec quelques tentatives.
+
+    Sous Windows, un fichier volumineux fraichement ecrit peut rester
+    momentanement verrouille (analyse antivirus) et faire echouer os.replace.
+    """
+    tmp = dest + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(content)
+    for i in range(attempts):
+        try:
+            os.replace(tmp, dest)
+            return
+        except OSError:
+            if i == attempts - 1:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                raise
+            time.sleep(1 + i)
 
 
 def main():
@@ -90,20 +123,30 @@ def main():
 
     names = set(zf.namelist())
     updated = []
+    failed = []
     for name in FILES_TO_EXTRACT:
         if name not in names:
             log(f"Attention : {name} absent du zip, ignore.")
+            failed.append(name)
             continue
         content = zf.read(name)
-        dest = os.path.join(MAP_DIR, name)
-        tmp = dest + ".tmp"
-        # Ecriture puis remplacement atomique pour ne jamais laisser un fichier tronque.
-        with open(tmp, "wb") as f:
-            f.write(content)
-        os.replace(tmp, dest)
+        try:
+            write_atomic(os.path.join(MAP_DIR, name), content)
+        except OSError as e:
+            # Un fichier verrouille (antivirus, serveur web) ne doit pas empecher
+            # la mise a jour des autres fichiers.
+            log(f"Echec de l'ecriture de {name} : {e}")
+            failed.append(name)
+            continue
         updated.append(f"{name} ({len(content)} octets)")
 
     log("Nouvelle version detectee. Mise a jour : " + ", ".join(updated))
+
+    if failed:
+        # On ne memorise pas l'ETag : le prochain lancement retentera les fichiers manquants.
+        log("Fichiers non mis a jour : " + ", ".join(failed) + ". L'ETag n'est pas memorise, "
+            "le prochain lancement retentera.")
+        return 1
 
     state["etag"] = etag
     state["last_modified"] = last_modified

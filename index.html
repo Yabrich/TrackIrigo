@@ -25,18 +25,22 @@
         </div>
       </section>
 
-      <section class="panel panel--intro" aria-labelledby="panel-accueil-title">
-        <div class="panel__heading panel__heading--centered">
-          <div class="panel__eyebrow">Accueil</div>
-          <h1 id="panel-accueil-title" class="panel__title panel__title--centered">Bienvenue sur Track'Irigo</h1>
+      <section class="panel" aria-labelledby="panel-carte-title">
+        <div class="panel__header">
+          <div>
+            <div class="panel__eyebrow">Carte</div>
+            <h2 id="panel-carte-title" class="panel__title panel__title--sm">Carte en temps réel</h2>
+          </div>
+          <a class="button-link" href="map/">Plein écran</a>
         </div>
-        <div class="intro-copy">
-          <p class="panel__text">
-            Track'Irigo est un site dédié au suivi temps réel du réseau Irigo à Angers. Il permet de visualiser les positions en temps réels des tramways et bus en service, ainsi que de suivre l'info trafic par ligne.
-          </p>
-          <p class="panel__text">
-            Créé et développé par Yabrich. <a href="https://github.com/Yabrich">GitHub</a>
-          </p>
+
+        <div class="map-preview">
+          <iframe
+            class="map-preview__frame"
+            src="map/"
+            title="Carte Track'Irigo"
+            loading="lazy"
+          ></iframe>
         </div>
       </section>
 
@@ -78,25 +82,6 @@
           </div>
         </div>
         <div id="line-categories" class="line-categories"></div>
-      </section>
-
-      <section class="panel panel--wide" aria-labelledby="panel-carte-title">
-        <div class="panel__header">
-          <div>
-            <div class="panel__eyebrow">Carte</div>
-            <h2 id="panel-carte-title" class="panel__title panel__title--sm">Carte en temps réel</h2>
-          </div>
-          <a class="button-link" href="map/">Plein écran</a>
-        </div>
-
-        <div class="map-preview">
-          <iframe
-            class="map-preview__frame"
-            src="map/"
-            title="Carte Track'Irigo"
-            loading="lazy"
-          ></iframe>
-        </div>
       </section>
     </main>
     <footer class="site-footer">

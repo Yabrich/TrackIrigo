@@ -147,7 +147,7 @@ function initTileLayers() {
     maxZoom: 18,
     attribution: '© OpenStreetMap'
   });
-  darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_2qso_1_45914cb2a499efd2e0bb99d6', {
     minZoom: 10,
     maxZoom: 18,
     attribution: '© CartoDB Dark Matter'
@@ -256,7 +256,8 @@ function loadSelectedRoutes() {
 }
 
 let selectedRoutes = loadSelectedRoutes();
-let linesGeoJSON, stopsData;
+let linesData = []; // Traces issus de shapes.txt (un objet par shape exploite)
+let stopsData;
 let lineColors = {}; // Couleur par ligne
 let stopNames = {}; // Nom par identifiant de station
 let stopCoords = {}; // Coordonnées par station
@@ -1102,27 +1103,200 @@ applyDayNightMode();
 
 
 // ==================================
+// 3bis. CONSTRUCTION DES TRACÉS (shapes.txt)
+// ==================================
+
+// Nombre de jours explorés pour retrouver un tracé en service pour chaque ligne.
+const SHAPE_LOOKAHEAD_DAYS = 14;
+const GTFS_DAY_FIELDS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+function gtfsDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
+
+// Renvoie une fonction date -> Set(service_id actifs), d'après calendar.txt et
+// les exceptions de calendar_dates.txt.
+function buildActiveServiceResolver(calendarText, calendarDatesText) {
+  const calendars = parseCSV(calendarText);
+  const exceptionsByDate = new Map();
+  parseCSV(calendarDatesText).forEach(row => {
+    const date = row.date;
+    const serviceId = row.service_id;
+    if (!date || !serviceId) return;
+    if (!exceptionsByDate.has(date)) exceptionsByDate.set(date, []);
+    exceptionsByDate.get(date).push({ serviceId, added: String(row.exception_type) === '1' });
+  });
+
+  return date => {
+    const key = gtfsDateKey(date);
+    const dayField = GTFS_DAY_FIELDS[date.getDay()];
+    const active = new Set();
+    calendars.forEach(row => {
+      if (!row.service_id) return;
+      if (row.start_date && key < row.start_date) return;
+      if (row.end_date && key > row.end_date) return;
+      if (row[dayField] === '1') active.add(row.service_id);
+    });
+    (exceptionsByDate.get(key) || []).forEach(exc => {
+      if (exc.added) active.add(exc.serviceId);
+      else active.delete(exc.serviceId);
+    });
+    return active;
+  };
+}
+
+// Pour chaque ligne, les shape_id réellement exploités. On part des services du
+// jour ; une ligne qui ne circule pas aujourd'hui (dimanche, ligne scolaire...)
+// est complétée avec le premier jour suivant où elle circule. Cela évite
+// d'afficher côte à côte l'ancien et le nouveau tracé d'une même ligne.
+function resolveShapeIdsByRoute(tripsRows, isServiceActiveOn) {
+  const shapesByService = new Map(); // service_id -> Map(route_id -> Set(shape_id))
+  tripsRows.forEach(row => {
+    const serviceId = row.service_id;
+    const routeId = row.route_id;
+    const shapeId = row.shape_id;
+    if (!serviceId || !routeId || !shapeId) return;
+    let byRoute = shapesByService.get(serviceId);
+    if (!byRoute) { byRoute = new Map(); shapesByService.set(serviceId, byRoute); }
+    let shapeIds = byRoute.get(routeId);
+    if (!shapeIds) { shapeIds = new Set(); byRoute.set(routeId, shapeIds); }
+    shapeIds.add(shapeId);
+  });
+
+  const result = new Map(); // route_id -> Set(shape_id)
+  const today = new Date();
+  for (let offset = 0; offset < SHAPE_LOOKAHEAD_DAYS; offset++) {
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+    const dayRoutes = new Map();
+    isServiceActiveOn(day).forEach(serviceId => {
+      const byRoute = shapesByService.get(serviceId);
+      if (!byRoute) return;
+      byRoute.forEach((shapeIds, routeId) => {
+        let target = dayRoutes.get(routeId);
+        if (!target) { target = new Set(); dayRoutes.set(routeId, target); }
+        shapeIds.forEach(id => target.add(id));
+      });
+    });
+    dayRoutes.forEach((shapeIds, routeId) => {
+      if (!result.has(routeId)) result.set(routeId, shapeIds);
+    });
+  }
+
+  if (result.size === 0) {
+    // calendar.txt illisible ou hors période : on retombe sur tous les tracés.
+    console.warn('Aucun service GTFS actif trouvé, affichage de tous les tracés.');
+    shapesByService.forEach(byRoute => {
+      byRoute.forEach((shapeIds, routeId) => {
+        let target = result.get(routeId);
+        if (!target) { target = new Set(); result.set(routeId, target); }
+        shapeIds.forEach(id => target.add(id));
+      });
+    });
+  }
+  return result;
+}
+
+// shapes.txt -> Map(shape_id -> [[lat, lon], ...]) trié par shape_pt_sequence.
+// Parseur dédié : fichier volumineux, colonnes numériques sans guillemets.
+function parseShapes(text, keepShapeIds) {
+  const shapes = new Map();
+  if (!text) return shapes;
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const headers = (lines[0] || '').replace(/^\uFEFF/, '').split(',').map(h => h.trim());
+  const idxId = headers.indexOf('shape_id');
+  const idxLat = headers.indexOf('shape_pt_lat');
+  const idxLon = headers.indexOf('shape_pt_lon');
+  const idxSeq = headers.indexOf('shape_pt_sequence');
+  if (idxId < 0 || idxLat < 0 || idxLon < 0) {
+    console.warn('shapes.txt : en-tête inattendu', headers);
+    return shapes;
+  }
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+    const parts = line.split(',');
+    const shapeId = parts[idxId];
+    if (!shapeId || (keepShapeIds && !keepShapeIds.has(shapeId))) continue;
+    const lat = Number(parts[idxLat]);
+    const lon = Number(parts[idxLon]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const seq = idxSeq >= 0 ? Number(parts[idxSeq]) : i;
+    let points = shapes.get(shapeId);
+    if (!points) { points = []; shapes.set(shapeId, points); }
+    points.push([Number.isFinite(seq) ? seq : i, lat, lon]);
+  }
+
+  shapes.forEach((points, shapeId) => {
+    points.sort((a, b) => a[0] - b[0]);
+    shapes.set(shapeId, points.map(point => [point[1], point[2]]));
+  });
+  return shapes;
+}
+
+// Assemble les tracés à dessiner : un objet par shape exploité, avec la couleur
+// et le nom de la ligne pris dans routes.txt.
+function buildLinesData(routesRows, tripsRows, shapesText, calendarText, calendarDatesText) {
+  const routeInfo = new Map();
+  routesRows.forEach(row => {
+    if (!row.route_id) return;
+    routeInfo.set(row.route_id, {
+      color: normalizeHexColor(row.route_color),
+      longName: row.route_long_name || ''
+    });
+  });
+
+  const isServiceActiveOn = buildActiveServiceResolver(calendarText, calendarDatesText);
+  const shapeIdsByRoute = resolveShapeIdsByRoute(tripsRows, isServiceActiveOn);
+
+  const wanted = new Set();
+  shapeIdsByRoute.forEach(shapeIds => shapeIds.forEach(id => wanted.add(id)));
+  const shapes = parseShapes(shapesText, wanted);
+
+  const lines = [];
+  shapeIdsByRoute.forEach((shapeIds, routeId) => {
+    const info = routeInfo.get(routeId) || {};
+    const routeKey = normalizeRouteId(routeId);
+    if (!routeKey) return;
+    shapeIds.forEach(shapeId => {
+      const latlngs = shapes.get(shapeId);
+      if (!latlngs || latlngs.length < 2) return;
+      lines.push({
+        routeKey,
+        shapeId,
+        color: normalizeHexColor(info.color),
+        longName: info.longName || '',
+        latlngs
+      });
+    });
+  });
+  return lines;
+}
+
+
+// ==================================
 // 4. DESSIN DES LIGNES FILTRÉES
 // ==================================
 
 function updateLines() {
   if (linesLayer) map.removeLayer(linesLayer);
-  linesLayer = L.geoJSON(linesGeoJSON, {
-    filter: feature => selectedRoutes.has(normalizeRouteId(feature.properties.route_id)),
-    style: feature => ({
-      color: '#' + feature.properties.route_color,
+
+  const polylines = [];
+  linesData.forEach(line => {
+    if (!selectedRoutes.has(line.routeKey)) return;
+    const polyline = L.polyline(line.latlngs, {
+      color: line.color,
       weight: 3,
       opacity: 0.7
-    }),
-    onEachFeature: (f, layer) => {
-      const p = f.properties;
-      let route_num = p.route_id
-      if (route_num >= 20 && route_num <= 25){
-        route_num = "E"+route_num
-      }
-      layer.bindPopup(`Ligne ${route_num}${p.route_long_name ? ` – ${p.route_long_name}` : ''}`);
-    }
-  }).addTo(map);
+    });
+    const label = formatRouteLabel(line.routeKey);
+    polyline.bindPopup(`Ligne ${label}${line.longName ? ` – ${line.longName}` : ''}`);
+    polylines.push(polyline);
+  });
+  linesLayer = L.featureGroup(polylines).addTo(map);
 
   if (forcedRoutesFromQuery.size && !hasTargetMapCenter && linesLayer.getLayers().length > 0) {
     const bounds = linesLayer.getBounds();
@@ -1181,8 +1355,15 @@ function getTramIcon(color) {
 // 6. CHARGEMENT DES DONNÉES (ARRÊTS + LIGNES)
 // ==================================
 
+function fetchGtfsText(name) {
+  return fetch(name).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status} sur ${name}`);
+    return res.text();
+  });
+}
+
 Promise.all([
-  fetch('stops.txt').then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
+  fetchGtfsText('stops.txt')
     .then(text => {
       const rows = parseCSV(text);
       return rows.map(row => {
@@ -1201,13 +1382,15 @@ Promise.all([
         };
       });
     }),
-  fetch('irigo_gtfs_lines.geojson').then(r => r.json()),
-  fetch('trips.txt').then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); }),
-  fetch('stop_times.txt').then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
+  fetchGtfsText('trips.txt'),
+  fetchGtfsText('stop_times.txt'),
+  fetchGtfsText('routes.txt'),
+  fetchGtfsText('shapes.txt'),
+  fetchGtfsText('calendar.txt'),
+  fetchGtfsText('calendar_dates.txt')
 ])
-.then(([stops, geojson, tripsText, stopTimesText]) => {
+.then(([stops, tripsText, stopTimesText, routesText, shapesText, calendarText, calendarDatesText]) => {
   stopsData = stops;
-  linesGeoJSON = geojson;
 
   // hydrate stop_times depuis CSV
   hydrateStopTimesMapFromCSV(stopTimesText);
@@ -1225,11 +1408,15 @@ Promise.all([
       if (!(sidNoZ in stopCoords)) stopCoords[sidNoZ] = coords;
     }
   });
-  geojson.features.forEach(f => {
-    const rid = normalizeRouteId(f.properties.route_id);
+  // Couleurs des lignes et tracés : routes.txt + trips.txt + shapes.txt
+  const routesRows = parseCSV(routesText);
+  const tripsRows = parseCSV(tripsText);
+  routesRows.forEach(row => {
+    const rid = normalizeRouteId(row.route_id);
     if (!rid) return;
-    lineColors[rid] = normalizeHexColor(f.properties.route_color);
+    lineColors[rid] = normalizeHexColor(row.route_color);
   });
+  linesData = buildLinesData(routesRows, tripsRows, shapesText, calendarText, calendarDatesText);
 
   // Définit les catégories et leurs lignes
   const categories = [
@@ -1345,7 +1532,6 @@ Promise.all([
   updateFilterVehicleCounts(latestVehicleCounts);
 
   // Construit la map avec clés normalisées (avec et sans zéros initiaux)
-  const tripsRows = parseCSV(tripsText);
   window.tripHeadsignMap = tripsRows.reduce((map, row) => {
     const idVal = row.trip_id ?? row.TRIP_ID ?? row['Trip ID'] ?? row['tripId'];
     const head  = row.trip_headsign ?? row.headsign ?? row.destination ?? row['Trip Headsign'] ?? row['trip Headsign'];
