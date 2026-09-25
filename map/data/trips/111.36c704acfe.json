@@ -1,0 +1,1 @@
+{"stops":["SAUBIN-P","CHDARR","GROESPLA","CHDARR-E"],"patterns":[[0,1,2],[2,3,0]],"profiles":[[0,[1020,180]],[1,[180,960]]],"headsigns":["ANGERS Gares","Lycée ST-AUBIN-LA-SALLE"],"trips":{"11101":[0,56100,0],"11102":[1,27900,1],"11103":[0,60300,0],"11104":[1,28500,1],"11105":[0,63600,0]}}

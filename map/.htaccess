@@ -1,0 +1,20 @@
+# Carte Track'Irigo.
+#
+# Compression à la volée des fichiers texte (HTML, CSS, JS, et anciens .txt GTFS
+# encore demandés par les navigateurs qui ont gardé l'ancienne version en cache).
+# Nécessite mod_deflate dans C:\xampp\apache\conf\httpd.conf :
+#     LoadModule deflate_module modules/mod_deflate.so
+# Sans ce module, ce bloc est simplement ignoré.
+<IfModule mod_filter.c>
+    <IfModule mod_deflate.c>
+        AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript text/plain application/json
+    </IfModule>
+</IfModule>
+
+# Toujours revalider la page et ses scripts (304 si inchangés) : une nouvelle version
+# de script.js / style.css est prise en compte dès la visite suivante.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|css|js)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>

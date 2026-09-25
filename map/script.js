@@ -90,47 +90,49 @@ body.dark-mode #toggle-all-btn:hover {
 document.head.append(styleEl);
 
 // =============================================
-// 0. FONCTION PARSE TXT => CSV
+// 0. DONNÉES PRÉ-CALCULÉES (data/, générées par build_map_data.py)
 // =============================================
+// data/network.json est un petit index ; les arrêts, tracés et horaires sont dans
+// des fichiers à empreinte (mis en cache par le navigateur) chargés à la demande.
 
-function parseCSV(text) {
-  if (!text) return [];
-  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter(l => l.trim() !== '');
-  if (lines.length === 0) return [];
-  const splitCSV = (line) => {
-    const result = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
-        else { inQuotes = !inQuotes; }
-      } else if (ch === ',' && !inQuotes) {
-        result.push(cur); cur = '';
-      } else {
-        cur += ch;
-      }
-    }
-    result.push(cur);
-    return result.map(v => v.trim());
+const DATA_DIR = 'data/';
+
+function fetchJson(url, options) {
+  return fetch(url, options).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status} sur ${url}`);
+    return res.json();
+  });
+}
+
+function fetchDataFile(path) {
+  if (!path) return Promise.reject(new Error('Fichier de données non référencé'));
+  return fetchJson(DATA_DIR + path);
+}
+
+// "Encoded polyline" (précision 1e-5) -> [[lat, lon], ...]
+function decodePolyline(encoded) {
+  const points = [];
+  if (!encoded) return points;
+  let index = 0;
+  let lat = 0;
+  let lon = 0;
+  const nextValue = () => {
+    let result = 0;
+    let shift = 0;
+    let byte;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    return (result & 1) ? ~(result >> 1) : (result >> 1);
   };
-  const headers = splitCSV(lines[0]).map(h => h.replace(/^"|"$/g, ''));
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const parts = splitCSV(lines[i]);
-    const obj = {};
-    for (let c = 0; c < headers.length; c++) {
-      const key = headers[c];
-      let val = parts[c] ?? '';
-      if (val && val.length >= 2 && val.startsWith('"') && val.endsWith('"')) {
-        val = val.slice(1, -1).replace(/""/g, '"');
-      }
-      obj[key] = val;
-    }
-    rows.push(obj);
+  while (index < encoded.length) {
+    lat += nextValue();
+    lon += nextValue();
+    points.push([lat / 1e5, lon / 1e5]);
   }
-  return rows;
+  return points;
 }
 
 // =============================================
@@ -256,20 +258,19 @@ function loadSelectedRoutes() {
 }
 
 let selectedRoutes = loadSelectedRoutes();
-let linesData = []; // Traces issus de shapes.txt (un objet par shape exploite)
-let stopsData;
+let stopsData = [];
 let lineColors = {}; // Couleur par ligne
 let stopNames = {}; // Nom par identifiant de station
 let stopCoords = {}; // Coordonnées par station
+const routesByKey = new Map(); // Clé de ligne normalisée -> entrées de network.json
 let linesLayer;
 let locateMarker; // Marker used for the "Me localiser" feature
 let trackedBusId = null; // ID du bus actuellement suivi
 let trackedPopupOpen = false;
-let tripHeadsignMap = {};
 let trackedBusLabel = null; // Label affiché pour le bus suivi
-const tripStopTimesMap = new Map();
 const DEFAULT_LINE_COLOR = '#4caf50';
 const DEFAULT_TIMELINE_MESSAGE = 'Horaires indisponibles.';
+const LOADING_TIMELINE_MESSAGE = 'Chargement des horaires…';
 const DEFAULT_SPEED_M_S = 10;
 const MIN_SPEED_M_S = 3;
 const DELAY_THRESHOLD_SECONDS = 90;
@@ -490,6 +491,7 @@ if (vehicleInfoClose) {
 applyVehicleInfoCollapseState();
 
 let selectedVehicleId = null;
+let selectedVehicleContext = null; // { vehicle, routeKey, busLabel } du véhicule affiché
 
 function setVehicleInfoField(element, value) {
   if (!element) return;
@@ -832,13 +834,100 @@ function getStopDisplayName(stopId) {
   return stopNames[normalized] || raw;
 }
 
-function getTripStopsByTripId(tripId) {
+// Horaires : un fichier par ligne (data/trips), chargé au premier clic sur un
+// véhicule de la ligne. Les courses y sont factorisées (suites d'arrêts et
+// profils de temps communs) et ne sont développées qu'à la demande.
+const routeTripsCache = new Map(); // Clé de ligne -> Promise
+const routeTripsStatus = new Map(); // Clé de ligne -> 'loading' | 'ready' | 'error'
+const tripIndex = new Map(); // trip_id (brut et sans zéros initiaux) -> { table, record }
+const expandedTripStops = new WeakMap(); // record -> liste des arrêts développée
+
+function registerTripTable(table) {
+  const trips = table && table.trips ? table.trips : {};
+  Object.keys(trips).forEach(tripId => {
+    const ref = { table, record: trips[tripId] };
+    tripIndex.set(tripId, ref);
+    const tripIdNoZ = tripId.replace(/^0+/, '') || '0';
+    if (!tripIndex.has(tripIdNoZ)) tripIndex.set(tripIdNoZ, ref);
+  });
+}
+
+function loadRouteTrips(routeKey) {
+  if (routeTripsCache.has(routeKey)) return routeTripsCache.get(routeKey);
+  const routes = routesByKey.get(routeKey) || [];
+  routeTripsStatus.set(routeKey, 'loading');
+  const promise = Promise.all(routes
+    .filter(route => route.trips)
+    .map(route => fetchDataFile(route.trips).then(registerTripTable)))
+    .then(() => {
+      routeTripsStatus.set(routeKey, 'ready');
+    }, err => {
+      routeTripsStatus.set(routeKey, 'error');
+      routeTripsCache.delete(routeKey); // nouvel essai au prochain clic
+      console.warn(`Horaires de la ligne ${routeKey} indisponibles :`, err);
+      throw err;
+    });
+  routeTripsCache.set(routeKey, promise);
+  return promise;
+}
+
+function findTrip(tripId) {
   if (tripId == null) return null;
   const raw = String(tripId);
-  if (tripStopTimesMap.has(raw)) return tripStopTimesMap.get(raw);
-  const normalized = raw.replace(/^0+/, '') || '0';
-  if (tripStopTimesMap.has(normalized)) return tripStopTimesMap.get(normalized);
-  return null;
+  return tripIndex.get(raw) || tripIndex.get(raw.replace(/^0+/, '') || '0') || null;
+}
+
+function secondsToGtfsTime(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+// record = [profil, arrivée au 1er arrêt (s), destination] ;
+// profil = [suite d'arrêts, temps de parcours entre arrêts, [indice, temps d'arrêt, ...]]
+function expandTripStops(table, record) {
+  const profile = table.profiles ? table.profiles[record[0]] : null;
+  if (!profile) return [];
+  const [patternIndex, travel = [], dwell = []] = profile;
+  const pattern = (table.patterns && table.patterns[patternIndex]) || [];
+  const dwellByIndex = new Map();
+  for (let i = 0; i + 1 < dwell.length; i += 2) dwellByIndex.set(dwell[i], dwell[i + 1]);
+
+  const stops = [];
+  let clock = record[1];
+  pattern.forEach((stopIndex, i) => {
+    if (i > 0) clock += travel[i - 1] || 0;
+    const arrivalSeconds = clock;
+    clock += dwellByIndex.get(i) || 0;
+    const departureSeconds = clock;
+    stops.push({
+      stopId: String(table.stops[stopIndex]),
+      sequence: i,
+      departureTime: secondsToGtfsTime(departureSeconds),
+      arrivalTime: secondsToGtfsTime(arrivalSeconds),
+      departureSeconds,
+      arrivalSeconds
+    });
+  });
+  return stops;
+}
+
+function getTripStopsByTripId(tripId) {
+  const trip = findTrip(tripId);
+  if (!trip) return null;
+  let stops = expandedTripStops.get(trip.record);
+  if (!stops) {
+    stops = expandTripStops(trip.table, trip.record);
+    expandedTripStops.set(trip.record, stops);
+  }
+  return stops;
+}
+
+function getTripHeadsign(tripId) {
+  const trip = findTrip(tripId);
+  if (!trip || !Array.isArray(trip.table.headsigns)) return null;
+  return trip.table.headsigns[trip.record[2]] ?? null;
 }
 
 function buildVehicleTimelineData(tripId, nextStopId, fallbackStopId, vehiclePosition, referenceSeconds) {
@@ -1020,61 +1109,52 @@ function buildVehicleTimelineData(tripId, nextStopId, fallbackStopId, vehiclePos
     allItems: fullItems
   };
 }
-function hydrateStopTimesMapFromCSV(stopTimesText) {
-  tripStopTimesMap.clear();
-  if (!stopTimesText) return;
-  try {
-    const rows = parseCSV(stopTimesText);
-    rows.forEach(row => {
-      const tripVal = row.trip_id ?? row.TRIP_ID ?? row['trip id'] ?? row['Trip ID'];
-      const stopVal = row.stop_id ?? row.STOP_ID ?? row['stop id'] ?? row['Stop ID'];
-      const sequenceVal = row.stop_sequence ?? row.STOP_SEQUENCE ?? row['stop sequence'] ?? row['Stop Sequence'];
-      if (tripVal == null || stopVal == null || sequenceVal == null) return;
+// Le panneau n'est calculé que pour le véhicule sélectionné ; les horaires de sa
+// ligne sont chargés au premier clic, puis le panneau est rafraîchi.
+function buildVehicleInfoPayload(context) {
+  const { vehicle: v, routeKey, busLabel } = context;
+  const tripKey = v.trip_id != null ? String(v.trip_id) : '';
+  const tripsStatus = routeTripsStatus.get(routeKey);
+  const tripsPending = tripsStatus !== 'ready' && tripsStatus !== 'error';
+  const nextStopId = v.next_stop != null ? v.next_stop : v.stop_id;
+  const timeline = tripsPending
+    ? { items: null, allItems: null, message: LOADING_TIMELINE_MESSAGE }
+    : buildVehicleTimelineData(
+      tripKey,
+      nextStopId,
+      v.stop_id,
+      { lat: Number(v.latitude), lon: Number(v.longitude) },
+      getSecondsSinceMidnight(new Date())
+    );
+  return {
+    id: busLabel,
+    line: formatRouteLabel(routeKey) || '-',
+    destination: tripsPending ? '…' : (getTripHeadsign(tripKey) ?? '-'),
+    nextStop: getStopDisplayName(nextStopId),
+    lineColor: normalizeHexColor(lineColors[routeKey]),
+    timeline,
+    timelineMessage: timeline ? timeline.message : undefined,
+    timelineKey: v.id != null ? String(v.id) : null
+  };
+}
 
-      const tripKey = String(tripVal);
-      const tripKeyNoZ = tripKey.replace(/^0+/, '') || '0';
-      const stopId = String(stopVal);
-      const sequenceNumber = Number(sequenceVal);
-      if (!Number.isFinite(sequenceNumber)) return;
+function refreshSelectedVehicleInfo() {
+  const context = selectedVehicleContext;
+  if (!context || selectedVehicleId == null || selectedVehicleId !== context.vehicle.id) return;
+  updateVehicleInfoPanel(buildVehicleInfoPayload(context));
+}
 
-      const departureRaw = row.departure_time ?? row.DEPARTURE_TIME ?? row['departure time'] ?? row['Departure Time'];
-      const arrivalRaw   = row.arrival_time   ?? row.ARRIVAL_TIME   ?? row['arrival time']   ?? row['Arrival Time'];
-      const departureNormalized = normalizeTimeValue(departureRaw ?? arrivalRaw ?? '');
-      const arrivalNormalized   = normalizeTimeValue(arrivalRaw   ?? departureRaw ?? '');
-      const entry = {
-        stopId,
-        sequence: sequenceNumber,
-        departureTime: departureNormalized,
-        arrivalTime: arrivalNormalized,
-        departureSeconds: timeStringToSeconds(departureNormalized),
-        arrivalSeconds:   timeStringToSeconds(arrivalNormalized)
-      };
-
-      let targetList;
-      if (tripStopTimesMap.has(tripKey)) {
-        targetList = tripStopTimesMap.get(tripKey);
-      } else if (tripKey !== tripKeyNoZ && tripStopTimesMap.has(tripKeyNoZ)) {
-        targetList = tripStopTimesMap.get(tripKeyNoZ);
-        tripStopTimesMap.set(tripKey, targetList);
-      } else {
-        targetList = [];
-        tripStopTimesMap.set(tripKey, targetList);
-      }
-      if (tripKey !== tripKeyNoZ && !tripStopTimesMap.has(tripKeyNoZ)) {
-        tripStopTimesMap.set(tripKeyNoZ, targetList);
-      }
-      targetList.push(entry);
-    });
-
-    // tri par stop_sequence
-    const sorted = new Set();
-    tripStopTimesMap.forEach(list => {
-      if (sorted.has(list)) return;
-      list.sort((a, b) => a.sequence - b.sequence);
-      sorted.add(list);
-    });
-  } catch (e) {
-    console.warn('Impossible de lire stop_times.txt :', e);
+function showVehicleInfo(context, isNewSelection) {
+  selectedVehicleContext = context;
+  const tripsStatus = routeTripsStatus.get(context.routeKey);
+  if (tripsStatus !== 'ready' && (tripsStatus !== 'error' || isNewSelection)) {
+    loadRouteTrips(context.routeKey).then(refreshSelectedVehicleInfo, refreshSelectedVehicleInfo);
+  }
+  const payload = buildVehicleInfoPayload(context);
+  if (isNewSelection) {
+    handleVehicleSelection(context.vehicle.id, payload);
+  } else {
+    updateVehicleInfoPanel(payload);
   }
 }
 
@@ -1103,177 +1183,80 @@ applyDayNightMode();
 
 
 // ==================================
-// 3bis. CONSTRUCTION DES TRACÉS (shapes.txt)
+// 3bis. TRACÉS DES LIGNES (data/shapes, un fichier par ligne)
 // ==================================
 
 // Nombre de jours explorés pour retrouver un tracé en service pour chaque ligne.
 const SHAPE_LOOKAHEAD_DAYS = 14;
-const GTFS_DAY_FIELDS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+let networkHasServiceSoon = true;
 
-function gtfsDateKey(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}${m}${d}`;
+// Indice du jour `date` (heure locale) dans un calendrier commençant le `base` (AAAAMMJJ).
+function gtfsDayIndex(base, date) {
+  if (!/^\d{8}$/.test(base || '')) return null;
+  const baseUtc = Date.UTC(Number(base.slice(0, 4)), Number(base.slice(4, 6)) - 1, Number(base.slice(6, 8)));
+  const dayUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((dayUtc - baseUtc) / 86400000);
 }
 
-// Renvoie une fonction date -> Set(service_id actifs), d'après calendar.txt et
-// les exceptions de calendar_dates.txt.
-function buildActiveServiceResolver(calendarText, calendarDatesText) {
-  const calendars = parseCSV(calendarText);
-  const exceptionsByDate = new Map();
-  parseCSV(calendarDatesText).forEach(row => {
-    const date = row.date;
-    const serviceId = row.service_id;
-    if (!date || !serviceId) return;
-    if (!exceptionsByDate.has(date)) exceptionsByDate.set(date, []);
-    exceptionsByDate.get(date).push({ serviceId, added: String(row.exception_type) === '1' });
-  });
-
-  return date => {
-    const key = gtfsDateKey(date);
-    const dayField = GTFS_DAY_FIELDS[date.getDay()];
-    const active = new Set();
-    calendars.forEach(row => {
-      if (!row.service_id) return;
-      if (row.start_date && key < row.start_date) return;
-      if (row.end_date && key > row.end_date) return;
-      if (row[dayField] === '1') active.add(row.service_id);
-    });
-    (exceptionsByDate.get(key) || []).forEach(exc => {
-      if (exc.added) active.add(exc.serviceId);
-      else active.delete(exc.serviceId);
-    });
-    return active;
-  };
+// Jours de circulation encodés en hexadécimal : 4 jours par caractère, bit de poids fort en premier.
+function isDayActive(hexDays, dayIndex) {
+  if (!hexDays || dayIndex == null || dayIndex < 0) return false;
+  const digit = parseInt(hexDays.charAt(dayIndex >> 2), 16);
+  return Number.isFinite(digit) && ((digit >> (3 - (dayIndex & 3))) & 1) === 1;
 }
 
-// Pour chaque ligne, les shape_id réellement exploités. On part des services du
-// jour ; une ligne qui ne circule pas aujourd'hui (dimanche, ligne scolaire...)
-// est complétée avec le premier jour suivant où elle circule. Cela évite
-// d'afficher côte à côte l'ancien et le nouveau tracé d'une même ligne.
-function resolveShapeIdsByRoute(tripsRows, isServiceActiveOn) {
-  const shapesByService = new Map(); // service_id -> Map(route_id -> Set(shape_id))
-  tripsRows.forEach(row => {
-    const serviceId = row.service_id;
-    const routeId = row.route_id;
-    const shapeId = row.shape_id;
-    if (!serviceId || !routeId || !shapeId) return;
-    let byRoute = shapesByService.get(serviceId);
-    if (!byRoute) { byRoute = new Map(); shapesByService.set(serviceId, byRoute); }
-    let shapeIds = byRoute.get(routeId);
-    if (!shapeIds) { shapeIds = new Set(); byRoute.set(routeId, shapeIds); }
-    shapeIds.add(shapeId);
-  });
-
-  const result = new Map(); // route_id -> Set(shape_id)
-  const today = new Date();
+// Faux si aucune ligne ne circule dans les prochains jours (calendrier expiré ou
+// illisible) : on affiche alors tous les tracés.
+function hasServiceInLookahead(network) {
+  const todayIndex = gtfsDayIndex(network.base, new Date());
+  if (todayIndex == null) return false;
   for (let offset = 0; offset < SHAPE_LOOKAHEAD_DAYS; offset++) {
-    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-    const dayRoutes = new Map();
-    isServiceActiveOn(day).forEach(serviceId => {
-      const byRoute = shapesByService.get(serviceId);
-      if (!byRoute) return;
-      byRoute.forEach((shapeIds, routeId) => {
-        let target = dayRoutes.get(routeId);
-        if (!target) { target = new Set(); dayRoutes.set(routeId, target); }
-        shapeIds.forEach(id => target.add(id));
-      });
-    });
-    dayRoutes.forEach((shapeIds, routeId) => {
-      if (!result.has(routeId)) result.set(routeId, shapeIds);
-    });
+    if (isDayActive(network.active, todayIndex + offset)) return true;
   }
-
-  if (result.size === 0) {
-    // calendar.txt illisible ou hors période : on retombe sur tous les tracés.
-    console.warn('Aucun service GTFS actif trouvé, affichage de tous les tracés.');
-    shapesByService.forEach(byRoute => {
-      byRoute.forEach((shapeIds, routeId) => {
-        let target = result.get(routeId);
-        if (!target) { target = new Set(); result.set(routeId, target); }
-        shapeIds.forEach(id => target.add(id));
-      });
-    });
-  }
-  return result;
+  return false;
 }
 
-// shapes.txt -> Map(shape_id -> [[lat, lon], ...]) trié par shape_pt_sequence.
-// Parseur dédié : fichier volumineux, colonnes numériques sans guillemets.
-function parseShapes(text, keepShapeIds) {
-  const shapes = new Map();
-  if (!text) return shapes;
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
-  const headers = (lines[0] || '').replace(/^\uFEFF/, '').split(',').map(h => h.trim());
-  const idxId = headers.indexOf('shape_id');
-  const idxLat = headers.indexOf('shape_pt_lat');
-  const idxLon = headers.indexOf('shape_pt_lon');
-  const idxSeq = headers.indexOf('shape_pt_sequence');
-  if (idxId < 0 || idxLat < 0 || idxLon < 0) {
-    console.warn('shapes.txt : en-tête inattendu', headers);
-    return shapes;
+// Tracés réellement exploités : ceux du jour ; une ligne qui ne circule pas
+// aujourd'hui (dimanche, ligne scolaire...) prend ceux du premier jour suivant où
+// elle circule. Cela évite d'afficher côte à côte l'ancien et le nouveau tracé
+// d'une même ligne.
+function selectShapesInService(shapeFile) {
+  const shapes = shapeFile && Array.isArray(shapeFile.shapes) ? shapeFile.shapes : [];
+  if (!networkHasServiceSoon) return shapes;
+  const todayIndex = gtfsDayIndex(shapeFile.base, new Date());
+  if (todayIndex == null) return shapes;
+  for (let offset = 0; offset < SHAPE_LOOKAHEAD_DAYS; offset++) {
+    const running = shapes.filter(shape => isDayActive(shape[1], todayIndex + offset));
+    if (running.length) return running;
   }
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-    const parts = line.split(',');
-    const shapeId = parts[idxId];
-    if (!shapeId || (keepShapeIds && !keepShapeIds.has(shapeId))) continue;
-    const lat = Number(parts[idxLat]);
-    const lon = Number(parts[idxLon]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const seq = idxSeq >= 0 ? Number(parts[idxSeq]) : i;
-    let points = shapes.get(shapeId);
-    if (!points) { points = []; shapes.set(shapeId, points); }
-    points.push([Number.isFinite(seq) ? seq : i, lat, lon]);
-  }
-
-  shapes.forEach((points, shapeId) => {
-    points.sort((a, b) => a[0] - b[0]);
-    shapes.set(shapeId, points.map(point => [point[1], point[2]]));
-  });
-  return shapes;
+  return [];
 }
 
-// Assemble les tracés à dessiner : un objet par shape exploité, avec la couleur
-// et le nom de la ligne pris dans routes.txt.
-function buildLinesData(routesRows, tripsRows, shapesText, calendarText, calendarDatesText) {
-  const routeInfo = new Map();
-  routesRows.forEach(row => {
-    if (!row.route_id) return;
-    routeInfo.set(row.route_id, {
-      color: normalizeHexColor(row.route_color),
-      longName: row.route_long_name || ''
-    });
+const routeLinesCache = new Map(); // Clé de ligne -> Promise<[{ routeKey, shapeId, color, longName, latlngs }]>
+
+function loadRouteLines(routeKey) {
+  if (routeLinesCache.has(routeKey)) return routeLinesCache.get(routeKey);
+  const routes = routesByKey.get(routeKey) || [];
+  const promise = Promise.all(routes
+    .filter(route => route.shapes)
+    .map(route => fetchDataFile(route.shapes).then(shapeFile =>
+      selectShapesInService(shapeFile)
+        .map(([shapeId, , encoded]) => ({
+          routeKey,
+          shapeId,
+          color: normalizeHexColor(route.color),
+          longName: route.name || '',
+          latlngs: decodePolyline(encoded)
+        }))
+        .filter(line => line.latlngs.length >= 2)
+    )))
+    .then(groups => groups.flat());
+  routeLinesCache.set(routeKey, promise);
+  promise.catch(err => {
+    routeLinesCache.delete(routeKey); // nouvel essai au prochain affichage
+    console.warn(`Tracé de la ligne ${routeKey} indisponible :`, err);
   });
-
-  const isServiceActiveOn = buildActiveServiceResolver(calendarText, calendarDatesText);
-  const shapeIdsByRoute = resolveShapeIdsByRoute(tripsRows, isServiceActiveOn);
-
-  const wanted = new Set();
-  shapeIdsByRoute.forEach(shapeIds => shapeIds.forEach(id => wanted.add(id)));
-  const shapes = parseShapes(shapesText, wanted);
-
-  const lines = [];
-  shapeIdsByRoute.forEach((shapeIds, routeId) => {
-    const info = routeInfo.get(routeId) || {};
-    const routeKey = normalizeRouteId(routeId);
-    if (!routeKey) return;
-    shapeIds.forEach(shapeId => {
-      const latlngs = shapes.get(shapeId);
-      if (!latlngs || latlngs.length < 2) return;
-      lines.push({
-        routeKey,
-        shapeId,
-        color: normalizeHexColor(info.color),
-        longName: info.longName || '',
-        latlngs
-      });
-    });
-  });
-  return lines;
+  return promise;
 }
 
 
@@ -1281,29 +1264,36 @@ function buildLinesData(routesRows, tripsRows, shapesText, calendarText, calenda
 // 4. DESSIN DES LIGNES FILTRÉES
 // ==================================
 
+let linesRenderToken = 0;
+
 function updateLines() {
-  if (linesLayer) map.removeLayer(linesLayer);
+  const token = ++linesRenderToken;
+  const routeKeys = Array.from(selectedRoutes);
+  return Promise.all(routeKeys.map(routeKey => loadRouteLines(routeKey).catch(() => [])))
+    .then(groups => {
+      if (token !== linesRenderToken) return; // sélection modifiée entre-temps
+      if (linesLayer) map.removeLayer(linesLayer);
 
-  const polylines = [];
-  linesData.forEach(line => {
-    if (!selectedRoutes.has(line.routeKey)) return;
-    const polyline = L.polyline(line.latlngs, {
-      color: line.color,
-      weight: 3,
-      opacity: 0.7
+      const polylines = [];
+      groups.flat().forEach(line => {
+        const polyline = L.polyline(line.latlngs, {
+          color: line.color,
+          weight: 3,
+          opacity: 0.7
+        });
+        const label = formatRouteLabel(line.routeKey);
+        polyline.bindPopup(`Ligne ${label}${line.longName ? ` – ${line.longName}` : ''}`);
+        polylines.push(polyline);
+      });
+      linesLayer = L.featureGroup(polylines).addTo(map);
+
+      if (forcedRoutesFromQuery.size && !hasTargetMapCenter && linesLayer.getLayers().length > 0) {
+        const bounds = linesLayer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+        }
+      }
     });
-    const label = formatRouteLabel(line.routeKey);
-    polyline.bindPopup(`Ligne ${label}${line.longName ? ` – ${line.longName}` : ''}`);
-    polylines.push(polyline);
-  });
-  linesLayer = L.featureGroup(polylines).addTo(map);
-
-  if (forcedRoutesFromQuery.size && !hasTargetMapCenter && linesLayer.getLayers().length > 0) {
-    const bounds = linesLayer.getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [20, 20] });
-    }
-  }
 }
 
 
@@ -1355,48 +1345,23 @@ function getTramIcon(color) {
 // 6. CHARGEMENT DES DONNÉES (ARRÊTS + LIGNES)
 // ==================================
 
-function fetchGtfsText(name) {
-  return fetch(name).then(res => {
-    if (!res.ok) throw new Error(`HTTP ${res.status} sur ${name}`);
-    return res.text();
+// Arrêts : colonnes id / name + coordonnées en "encoded polyline".
+function applyStopsFile(stopsFile) {
+  const ids = stopsFile && Array.isArray(stopsFile.id) ? stopsFile.id : [];
+  const names = stopsFile && Array.isArray(stopsFile.name) ? stopsFile.name : [];
+  const coords = decodePolyline(stopsFile && stopsFile.coords);
+  const withoutCoords = new Set(stopsFile && Array.isArray(stopsFile.noCoords) ? stopsFile.noCoords : []);
+  stopsData = ids.map((stopId, i) => {
+    const point = withoutCoords.has(i) ? null : coords[i];
+    return {
+      stop_id: stopId,
+      stop_name: names[i],
+      stop_coordinates: point ? { lat: point[0], lon: point[1] } : { lat: NaN, lon: NaN }
+    };
   });
-}
 
-Promise.all([
-  fetchGtfsText('stops.txt')
-    .then(text => {
-      const rows = parseCSV(text);
-      return rows.map(row => {
-        const stopId = row.stop_id ?? row.STOP_ID ?? row['Stop ID'];
-        const stopName = row.stop_name ?? row.STOP_NAME ?? row['Stop Name'];
-        const stopLat = row.stop_lat ?? row.STOP_LAT ?? row['Stop Lat'];
-        const stopLon = row.stop_lon ?? row.STOP_LON ?? row['Stop Lon'];
-        
-        return {
-          stop_id: stopId,
-          stop_name: stopName,
-          stop_coordinates: {
-            lat: Number(stopLat),
-            lon: Number(stopLon)
-          }
-        };
-      });
-    }),
-  fetchGtfsText('trips.txt'),
-  fetchGtfsText('stop_times.txt'),
-  fetchGtfsText('routes.txt'),
-  fetchGtfsText('shapes.txt'),
-  fetchGtfsText('calendar.txt'),
-  fetchGtfsText('calendar_dates.txt')
-])
-.then(([stops, tripsText, stopTimesText, routesText, shapesText, calendarText, calendarDatesText]) => {
-  stopsData = stops;
-
-  // hydrate stop_times depuis CSV
-  hydrateStopTimesMapFromCSV(stopTimesText);
-
-  // Construire stopNames/coords et lineColors
-  stops.forEach(s => {
+  // Construire stopNames/coords
+  stopsData.forEach(s => {
     if (!s || s.stop_id == null) return;
     const sid = String(s.stop_id);
     const sidNoZ = sid.replace(/^0+/, '') || '0';
@@ -1408,15 +1373,37 @@ Promise.all([
       if (!(sidNoZ in stopCoords)) stopCoords[sidNoZ] = coords;
     }
   });
-  // Couleurs des lignes et tracés : routes.txt + trips.txt + shapes.txt
-  const routesRows = parseCSV(routesText);
-  const tripsRows = parseCSV(tripsText);
-  routesRows.forEach(row => {
-    const rid = normalizeRouteId(row.route_id);
-    if (!rid) return;
-    lineColors[rid] = normalizeHexColor(row.route_color);
+}
+
+// network.json : lignes (couleur, nom, fichiers de tracés / horaires) et calendrier global.
+function applyNetworkIndex(network) {
+  routesByKey.clear();
+  (Array.isArray(network.routes) ? network.routes : []).forEach(route => {
+    const routeKey = normalizeRouteId(route.id);
+    if (!routeKey) return;
+    if (!routesByKey.has(routeKey)) routesByKey.set(routeKey, []);
+    routesByKey.get(routeKey).push(route);
+    lineColors[routeKey] = normalizeHexColor(route.color);
   });
-  linesData = buildLinesData(routesRows, tripsRows, shapesText, calendarText, calendarDatesText);
+  networkHasServiceSoon = hasServiceInLookahead(network);
+  if (!networkHasServiceSoon) {
+    console.warn('Aucun service GTFS actif trouvé, affichage de tous les tracés.');
+  }
+}
+
+// Revalidé à chaque visite (réponse 304 s'il n'a pas changé) ; les fichiers qu'il
+// référence portent une empreinte et restent en cache.
+fetchJson(DATA_DIR + 'network.json', { cache: 'no-cache' })
+.then(network => {
+  applyNetworkIndex(network);
+
+  fetchDataFile(network.stops)
+    .then(stopsFile => {
+      applyStopsFile(stopsFile);
+      initStopsLayer();
+      refreshSelectedVehicleInfo();
+    })
+    .catch(err => console.warn('Impossible de charger les arrêts :', err));
 
   // Définit les catégories et leurs lignes
   const categories = [
@@ -1531,23 +1518,8 @@ Promise.all([
 
   updateFilterVehicleCounts(latestVehicleCounts);
 
-  // Construit la map avec clés normalisées (avec et sans zéros initiaux)
-  window.tripHeadsignMap = tripsRows.reduce((map, row) => {
-    const idVal = row.trip_id ?? row.TRIP_ID ?? row['Trip ID'] ?? row['tripId'];
-    const head  = row.trip_headsign ?? row.headsign ?? row.destination ?? row['Trip Headsign'] ?? row['trip Headsign'];
-    if (idVal != null && head != null && head !== '') {
-      const k = String(idVal);
-      const kNoZ = (k.replace(/^0+/, '') || '0');
-      map[k] = head;
-      if (!(kNoZ in map)) map[kNoZ] = head;
-    }
-    return map;
-  }, {});
-
-
   // Initial render
-  updateLines();
-  initStopsLayer();
+  const linesReady = updateLines();
   if (hasTargetMapCenter) {
     map.setView([targetMapLat, targetMapLon], Number.isFinite(targetMapZoom) ? targetMapZoom : 17);
     L.circleMarker([targetMapLat, targetMapLon], {
@@ -1558,7 +1530,7 @@ Promise.all([
       fillOpacity: 1
     }).addTo(map);
   }
-  updateVehicles().finally(() => hideLoadingOverlay());
+  Promise.all([linesReady, updateVehicles()]).finally(() => hideLoadingOverlay());
   setInterval(updateVehicles, UPDATE_INTERVAL_MS);
 })
 .catch(err => {
@@ -1652,6 +1624,17 @@ setInterval(() => {
   }
 }, 1000);
 
+const VEHICLES_URL = 'https://web-production-c4b0.up.railway.app/irigo.json';
+//const VEHICLES_URL = 'http://localhost:5000/irigo.json';
+
+function fetchVehiclesPayload() {
+  return fetchJson(VEHICLES_URL);
+}
+
+// Première requête lancée dès maintenant, en parallèle du chargement des données de la carte.
+let pendingVehiclesPayload = fetchVehiclesPayload();
+pendingVehiclesPayload.catch(() => {}); // erreur traitée dans chargerVehicules
+
 let markers = [];
 async function chargerVehicules() {
   markers.forEach(m => map.removeLayer(m));
@@ -1659,10 +1642,9 @@ async function chargerVehicules() {
   let trackedMarker = null;
   let selectedVehicleStillVisible = false;
   try {
-    const resp = await fetch('https://web-production-c4b0.up.railway.app/irigo.json');
-    //const resp = await fetch('http://localhost:5000/irigo.json');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const payload = await resp.json();
+    const request = pendingVehiclesPayload || fetchVehiclesPayload();
+    pendingVehiclesPayload = null;
+    const payload = await request;
     const data = Array.isArray(payload)
       ? payload
       : Array.isArray(payload?.vehicles)
@@ -1680,7 +1662,6 @@ async function chargerVehicules() {
     });
     updateFilterVehicleCounts(routeCounts);
 
-    const referenceSeconds = getSecondsSinceMidnight(new Date());
     data.forEach(v => {
       const routeKey = normalizeRouteId(v.route_id);
       if (!routeKey || !selectedRoutes.has(routeKey)) return;
@@ -1691,37 +1672,10 @@ async function chargerVehicules() {
         ? getTramIcon(sanitizedColor)
         : getBusIcon(sanitizedColor);
 
-      const displayLine = formatRouteLabel(routeKey);
-
       let busLabel = v.id;
       if (busLabel && busLabel.length > 4) busLabel = 'Bus Suburbain';
 
-      const tripKey = v.trip_id != null ? String(v.trip_id) : '';
-      const tripKeyNoZ = tripKey.replace(/^0+/, '') || '0';
-      const headsign = window.tripHeadsignMap[tripKey] ?? window.tripHeadsignMap[tripKeyNoZ] ?? '-';
-
-      const nextStopId = v.next_stop != null ? v.next_stop : v.stop_id;
-      const fallbackStopId = v.stop_id;
-      const nextStopName = getStopDisplayName(nextStopId);
-      const timelineResult = buildVehicleTimelineData(
-        tripKey || tripKeyNoZ,
-        nextStopId,
-        fallbackStopId,
-        { lat: Number(v.latitude), lon: Number(v.longitude) },
-        referenceSeconds
-      );
-      const timelineMessage = timelineResult ? timelineResult.message : undefined;
-
-      const infoPayload = {
-        id: busLabel,
-        line: displayLine || '-',
-        destination: headsign,
-        nextStop: nextStopName,
-        lineColor: lineColorHex,
-        timeline: timelineResult,
-        timelineMessage,
-        timelineKey: v.id != null ? String(v.id) : null
-      };
+      const vehicleContext = { vehicle: v, routeKey, busLabel };
 
       const followLabel = trackedBusId === v.id
         ? 'Arrêter le suivi'
@@ -1737,7 +1691,7 @@ async function chargerVehicules() {
         .bindPopup(popupHtml);
 
       m.on('popupopen', e => {
-        handleVehicleSelection(v.id, infoPayload);
+        showVehicleInfo(vehicleContext, true);
         const btn = e.popup.getElement().querySelector('.follow-btn');
         if (!btn) return;
         btn.addEventListener('click', () => {
@@ -1760,7 +1714,7 @@ async function chargerVehicules() {
 
       if (selectedVehicleId === v.id) {
         selectedVehicleStillVisible = true;
-        updateVehicleInfoPanel(infoPayload);
+        showVehicleInfo(vehicleContext, false);
       }
 
       markers.push(m);

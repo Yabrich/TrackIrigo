@@ -1,0 +1,44 @@
+# Données de la carte, générées par build_map_data.py.
+#
+# - Chaque .json existe aussi pré-compressé (.json.gz) : il est envoyé tel quel aux
+#   navigateurs qui acceptent gzip (5 à 10 fois moins d'octets, aucun calcul serveur).
+# - Les fichiers dont le nom contient une empreinte (ex. shapes/A.0123456789.json)
+#   ne changent jamais de contenu : cache navigateur d'un an, aucune requête ensuite.
+# - network.json (l'index qui pointe vers ces fichiers) est revalidé à chaque visite
+#   (réponse 304 de quelques octets s'il n'a pas changé).
+#
+# Modules utilisés (actifs par défaut dans XAMPP) : mod_rewrite, mod_headers, mod_mime.
+# Sans eux, les .json non compressés sont servis normalement.
+
+<IfModule mod_mime.c>
+    RemoveType .gz
+    RemoveEncoding .gz
+    AddType application/json .json
+    AddCharset utf-8 .json
+</IfModule>
+
+<IfModule mod_headers.c>
+    <IfModule mod_rewrite.c>
+        RewriteEngine On
+
+        RewriteCond %{HTTP:Accept-Encoding} gzip
+        RewriteCond %{REQUEST_FILENAME}.gz -f
+        RewriteRule \.json$ %{REQUEST_URI}.gz [L]
+
+        # Type correct, et pas de seconde compression par mod_deflate.
+        RewriteRule \.json\.gz$ - [T=application/json,E=no-gzip:1,E=no-brotli:1]
+    </IfModule>
+
+    <FilesMatch "\.json\.gz$">
+        Header set Content-Encoding gzip
+    </FilesMatch>
+
+    <FilesMatch "\.json(\.gz)?$">
+        Header append Vary Accept-Encoding
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+
+    <FilesMatch "\.[0-9a-f]{10}\.json(\.gz)?$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>

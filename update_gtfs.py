@@ -5,7 +5,7 @@
 Télécharge https://chouette.enroute.mobi/api/v1/datas/Irigo/gtfs.zip UNIQUEMENT
 si le flux distant a changé (comparaison via l'en-tête HTTP ETag / Last-Modified),
 puis extrait les fichiers voulus (stop_times.txt, trips.txt, shapes.txt, ...) dans le
-dossier /map.
+dossier /map et régénère les données compactes de la carte (build_map_data.py).
 
 Conçu pour être lancé périodiquement (Planificateur de tâches Windows). Grâce à
 la requête conditionnelle, un lancement ne télécharge rien tant qu'il n'y a pas
@@ -22,6 +22,8 @@ import zipfile
 import urllib.request
 import urllib.error
 from datetime import datetime
+
+import build_map_data
 
 GTFS_URL = "https://chouette.enroute.mobi/api/v1/datas/Irigo/gtfs.zip"
 
@@ -89,7 +91,7 @@ def write_atomic(dest, content, attempts=5):
             time.sleep(1 + i)
 
 
-def main():
+def update_gtfs_files():
     state = load_state()
 
     req = urllib.request.Request(GTFS_URL, headers={"User-Agent": "TrackIrigo-GTFS-Updater/1.0"})
@@ -153,6 +155,18 @@ def main():
     state["updated_at"] = datetime.now().isoformat(timespec="seconds")
     save_state(state)
     return 0
+
+
+def main():
+    status = update_gtfs_files()
+    # Toujours tenté (même sans nouvelle version) : ne fait rien si les données de la
+    # carte sont déjà à jour, et les crée au premier lancement après un déploiement.
+    try:
+        build_map_data.build_if_needed(log=log)
+    except Exception as e:
+        log(f"Echec de la generation des donnees de la carte : {e}")
+        return 1
+    return status
 
 
 if __name__ == "__main__":

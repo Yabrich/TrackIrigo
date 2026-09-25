@@ -1,0 +1,1 @@
+{"stops":["COLDEBUS","PELLEG-E","COSSIE-E","DOLANT-E","BLITOURN","BRIDONNO"],"patterns":[[0,1,2,3,4,5],[1,2,3,4,5,0]],"profiles":[[0,[960,103,77,256,164]],[1,[138,102,219,141,720]]],"headsigns":["PELLOUAILLES-LES-VIGNES","Collège CLAUDE DEBUSSY"],"trips":{"12101":[0,45000,0],"12102":[1,28500,1],"12103":[0,56700,0],"12105":[0,60900,0]}}
