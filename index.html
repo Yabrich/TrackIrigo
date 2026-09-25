@@ -4,8 +4,48 @@
   <meta charset="UTF-8" />
   <title>Track'Irigo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="icon_site.png" />
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Mode sombre automatique : lever / coucher du soleil (même logique que la carte) -->
+  <script src="https://unpkg.com/suncalc@1.8.0/suncalc.js"></script>
+  <script>
+    (function () {
+      // Angers (centre du réseau Irigo)
+      var LAT = 47.4784, LNG = -0.5632, timer;
+
+      function isNight(now) {
+        if (window.SunCalc) {
+          var t = SunCalc.getTimes(now, LAT, LNG);
+          if (t.sunrise && t.sunset) return now >= t.sunset || now < t.sunrise;
+        }
+        var h = now.getHours(); // repli si SunCalc indisponible
+        return h >= 21 || h < 7;
+      }
+
+      function msUntilNextSwitch(now, night) {
+        if (!window.SunCalc) return 3600000; // re-vérifie dans 1 h
+        var t = SunCalc.getTimes(now, LAT, LNG);
+        var next = night ? t.sunrise : t.sunset;
+        if (!next || next <= now) {
+          var tmr = SunCalc.getTimes(new Date(now.getTime() + 86400000), LAT, LNG);
+          next = night ? tmr.sunrise : tmr.sunset;
+        }
+        return Math.max(60000, next.getTime() - now.getTime() + 1000);
+      }
+
+      function apply() {
+        var now = new Date();
+        var night = isNight(now);
+        document.documentElement.classList.toggle('dark-mode', night);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(apply, msUntilNextSwitch(now, night));
+      }
+
+      apply();
+    })();
+  </script>
 </head>
   <body>
   <div class="site-shell">
@@ -25,7 +65,7 @@
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="panel-carte-title">
+      <section class="panel panel--wide" aria-labelledby="panel-carte-title">
         <div class="panel__header">
           <div>
             <div class="panel__eyebrow">Carte</div>
@@ -44,35 +84,35 @@
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="panel-stations-title">
-        <div class="panel__heading panel__heading--centered">
-          <div>
-            <div class="panel__eyebrow">Stations</div>
-            <h2 id="panel-stations-title" class="panel__title panel__title--sm panel__title--centered">Stations</h2>
-          </div>
-        </div>
-        <p class="panel__text panel__text--centered">
-          Recherchez un arrêt afin d'accéder aux prochains passages en temps réel. La recherche fonctionne par nom d'arrêt et par numéro de ligne. Les deux étant combinables.
-        </p>
+<!--      <section class="panel" aria-labelledby="panel-stations-title">-->
+<!--        <div class="panel__heading panel__heading&#45;&#45;centered">-->
+<!--          <div>-->
+<!--            <div class="panel__eyebrow">Stations</div>-->
+<!--            <h2 id="panel-stations-title" class="panel__title panel__title&#45;&#45;sm panel__title&#45;&#45;centered">Stations (Outdated, mise à jour prévue)</h2>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--        <p class="panel__text panel__text&#45;&#45;centered">-->
+<!--          Recherchez un arrêt afin d'accéder aux prochains passages en temps réel. La recherche fonctionne par nom d'arrêt et par numéro de ligne. Les deux étant combinables.-->
+<!--        </p>-->
 
-        <label class="search-field" for="station-search">
-          <span class="sr-only">Nom d'arrêt</span>
-          <input
-            id="station-search"
-            name="station-search"
-            type="search"
-            placeholder="Rechercher un arrêt ou une ligne"
-            autocomplete="off"
-          />
-        </label>
+<!--        <label class="search-field" for="station-search">-->
+<!--          <span class="sr-only">Nom d'arrêt</span>-->
+<!--          <input-->
+<!--            id="station-search"-->
+<!--            name="station-search"-->
+<!--            type="search"-->
+<!--            placeholder="Rechercher un arrêt ou une ligne"-->
+<!--            autocomplete="off"-->
+<!--          />-->
+<!--        </label>-->
 
-        <div class="panel__actions panel__actions--centered">
-          <a class="text-button station-list-link" href="stations/">Voir la liste complète des stations</a>
-          <span class="panel__meta" id="station-count">Chargement...</span>
-        </div>
+<!--        <div class="panel__actions panel__actions&#45;&#45;centered">-->
+<!--          <a class="text-button station-list-link" href="stations/">Voir la liste complète des stations</a>-->
+<!--          <span class="panel__meta" id="station-count">Chargement...</span>-->
+<!--        </div>-->
 
-        <div class="station-results" id="station-results" aria-live="polite"></div>
-      </section>
+<!--        <div class="station-results" id="station-results" aria-live="polite"></div>-->
+<!--      </section>-->
 
       <section class="panel panel--wide" aria-labelledby="panel-lignes-title">
         <div class="panel__header">

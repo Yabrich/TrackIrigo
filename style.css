@@ -150,6 +150,7 @@ input {
 }
 
 .panel__title {
+  font-style: italic;
   margin: 0 0 14px;
   font-size: 34px;
   line-height: 1.05;
@@ -565,6 +566,72 @@ input {
 @keyframes blink-active {
   0% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+/* ============================================= */
+/*  MODE SOMBRE (auto : lever / coucher du soleil) */
+/* ============================================= */
+html.dark-mode {
+  --color-black: #e9e9ec;
+  --color-black-soft: #c7c7cd;
+  --color-white: #22222c;
+  --color-border: #343440;
+  --color-surface: #1b1b22;
+  --color-muted: #9a9aa6;
+  --color-header-bg: #1f1f2b;
+  --color-header-border: #2c2c3e;
+  --shadow-panel: 0 12px 30px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+html.dark-mode body {
+  background: #16161c;
+  color: var(--color-black);
+}
+
+html.dark-mode .carousel,
+html.dark-mode .carousel__slide {
+  background: #1b1b22;
+}
+
+html.dark-mode .carousel__slide img {
+  filter: brightness(0.85);
+}
+
+html.dark-mode .map-preview {
+  border-color: #343440;
+  background: #1b1b22;
+}
+
+html.dark-mode .line-category {
+  border-top-color: #2e2e38;
+}
+
+/* Les logos de lignes gardent une "pastille" claire : les badges Irigo
+   (contour blanc / fond blanc pour les lignes suburbaines) restent ainsi
+   parfaitement lisibles et fidèles à la charte, quel que soit le thème. */
+html.dark-mode .line-button {
+  background: #ededf0;
+  border-color: #3a3a46;
+}
+
+html.dark-mode .line-button:hover,
+html.dark-mode .line-button:focus-visible {
+  border-color: var(--line-accent-color, var(--color-red));
+}
+
+html.dark-mode .line-button--traffic-warning,
+html.dark-mode .line-button--traffic-detour {
+  border-color: #f0c330;
+}
+
+html.dark-mode .line-button--traffic-no-service {
+  border-color: #d61f2c;
+}
+
+html.dark-mode .site-footer {
+  border-top-color: #2a2a33;
+  color: var(--color-muted);
 }
 
 @media (max-width: 960px) {
