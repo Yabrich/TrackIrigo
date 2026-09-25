@@ -75,16 +75,18 @@ Track'Irigo vise à proposer une interface plus directe, centrée sur :
 * Affichage des perturbations en cours
 * Mise en évidence des impacts réseau (retards, interruptions, déviations)
 
-### 📄 Pages dédiées aux lignes
+### ~~📄 Pages dédiées aux lignes~~
 
-* Une page par ligne
-* Vue plus claire des informations spécifiques (trajet, desserte, etc.)
+* ~~Une page par ligne~~
+* ~~Vue plus claire des informations spécifiques (trajet, desserte, etc.)~~
 
-### ⏱️ Prochains passages en temps réel
+### ~~⏱️ Prochains passages en temps réel~~
 
-* Tableau des prochains passages pour chaque arrêt
-* Données dynamiques issues du temps réel
-* Consultation rapide sans passer par une interface externe
+* ~~Tableau des prochains passages pour chaque arrêt~~
+* ~~Données dynamiques issues du temps réel~~
+* ~~Consultation rapide sans passer par une interface externe~~
+
+*(Fonctionnalitées retirées en v2.2)*
 
 ---
 
