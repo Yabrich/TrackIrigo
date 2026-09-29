@@ -104,6 +104,7 @@ const carouselTrack = document.getElementById('carousel-track');
 const MOBILE_QUERY = '(max-width: 767px), (pointer: coarse) and (max-height: 500px)';
 const mobileMedia = window.matchMedia(MOBILE_QUERY);
 const siteShell = document.querySelector('.site-shell');
+const lineView = document.getElementById('line-view');
 const viewLinks = document.querySelectorAll('[data-view-link]');
 const TRAFFIC_REFRESH_MS = 5 * 60 * 1000;
 const INSTALL_HINT_STORAGE_KEY = 'trackirigo:install-hint-shown';
@@ -111,6 +112,8 @@ const INSTALL_HINT_STORAGE_KEY = 'trackirigo:install-hint-shown';
 let stationIndex = [];
 const lineTrafficState = new Map();
 let lastTrafficRequestAt = 0;
+let lineFrame = null;
+let openLineId = null;
 let carouselImages = [];
 let carouselIndex = 0;
 let carouselIntervalId = null;
@@ -522,8 +525,67 @@ async function loadTrafficInfo() {
 // ==================================
 // VERSION MOBILE : vues "Carte" / "Info trafic"
 // ==================================
+// Adresses : "/" (carte), "#trafic" (info trafic), "#trafic/<ligne>" (page de ligne).
+const knownLines = new Set(lineCategories.flatMap(category => category.lines));
+
 function getViewFromHash() {
-  return window.location.hash === '#trafic' ? 'trafic' : 'carte';
+  return window.location.hash.startsWith('#trafic') ? 'trafic' : 'carte';
+}
+
+function getLineFromHash() {
+  const match = window.location.hash.match(/^#trafic\/([A-Za-z0-9]+)$/);
+  return match && knownLines.has(match[1]) ? match[1] : null;
+}
+
+function getTrafficUrl() {
+  return openLineId ? `#trafic/${openLineId}` : '#trafic';
+}
+
+// Sur mobile, une page de ligne s'ouvre dans l'accueil (iframe au-dessus de l'info
+// trafic) au lieu de le quitter : la carte n'est jamais rechargée et garde son
+// suivi / sa position.
+function showLineFrame(line) {
+  if (!lineView || line === openLineId) return;
+  hideLineFrame();
+
+  const frame = document.createElement('iframe');
+  frame.className = 'line-view__frame is-loading';
+  frame.title = `Ligne ${line}`;
+  frame.src = `lines/${line}.html?embed`;
+  frame.addEventListener('load', () => frame.classList.remove('is-loading'));
+  lineView.appendChild(frame);
+
+  lineFrame = frame;
+  openLineId = line;
+  document.documentElement.setAttribute('data-line-open', '');
+}
+
+function hideLineFrame() {
+  if (lineFrame) lineFrame.remove();
+  lineFrame = null;
+  openLineId = null;
+  document.documentElement.removeAttribute('data-line-open');
+}
+
+// Retour à la liste : on consomme l'entrée d'historique ajoutée à l'ouverture,
+// pour que le bouton retour (Android, geste iOS) ferme lui aussi la page de ligne.
+function closeLine() {
+  if (window.history.state?.trackirigoLine) {
+    window.history.back(); // -> hashchange -> syncWithLocation()
+    return;
+  }
+  window.history.replaceState(null, '', '#trafic');
+  hideLineFrame();
+}
+
+function syncWithLocation() {
+  const line = mobileMedia.matches ? getLineFromHash() : null;
+  if (line) {
+    showLineFrame(line);
+  } else {
+    hideLineFrame();
+  }
+  setView(getViewFromHash());
 }
 
 function setView(view) {
@@ -547,18 +609,46 @@ viewLinks.forEach(link => {
     event.preventDefault();
     const view = link.dataset.viewLink;
     if (view === document.documentElement.getAttribute('data-view')) {
-      if (view === 'trafic' && siteShell) siteShell.scrollTo({ top: 0, behavior: 'smooth' });
+      // Onglet déjà actif : retour à la liste, puis en haut de la liste.
+      if (view === 'trafic' && openLineId) {
+        closeLine();
+      } else if (view === 'trafic' && siteShell) {
+        siteShell.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       return;
     }
-    // replaceState : changer d'onglet n'empile pas d'historique, mais un retour
-    // depuis une page de ligne ramène bien sur l'info trafic.
-    const url = view === 'trafic' ? '#trafic' : window.location.pathname + window.location.search;
-    window.history.replaceState(null, '', url);
+    // replaceState : changer d'onglet n'empile pas d'historique. La page de ligne
+    // éventuellement ouverte reste en place et se retrouve en revenant sur l'onglet.
+    const url = view === 'trafic' ? getTrafficUrl() : window.location.pathname + window.location.search;
+    window.history.replaceState(window.history.state, '', url);
     setView(view);
   });
 });
 
-window.addEventListener('hashchange', () => setView(getViewFromHash()));
+if (lineCategoriesContainer) {
+  lineCategoriesContainer.addEventListener('click', event => {
+    const button = event.target.closest('.line-button');
+    if (!button || !mobileMedia.matches) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    const line = button.dataset.line;
+    window.history.pushState({ trackirigoLine: line }, '', `#trafic/${line}`);
+    showLineFrame(line);
+  });
+}
+
+// Messages de la page de ligne intégrée (voir lines/line.js).
+window.addEventListener('message', event => {
+  if (event.origin !== window.location.origin || !lineFrame || event.source !== lineFrame.contentWindow) return;
+  const type = event.data?.type;
+  if (type === 'trackirigo:line-ready') {
+    lineFrame.classList.remove('is-loading');
+  } else if (type === 'trackirigo:close-line') {
+    closeLine();
+  }
+});
+
+window.addEventListener('hashchange', syncWithLocation);
 
 // Le carrousel n'existe pas en version mobile : ses photos ne sont chargées
 // que lorsque la mise en page ordinateur est affichée.
@@ -638,7 +728,7 @@ loadCarouselOnDesktop();
 renderLineCategories();
 loadStationsV2();
 loadTrafficInfo();
-setView(getViewFromHash());
+syncWithLocation();
 maybeShowInstallHint();
 
 if (stationSearchInput) {

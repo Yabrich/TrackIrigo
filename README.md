@@ -1,6 +1,6 @@
 # 🌍 Track'Irigo — Carte temps réel Irigo
 
-![Version](https://img.shields.io/badge/version-2.2.2-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.2.3-blue?style=for-the-badge)
 
 Une carte interactive pensée pour rendre les déplacements sur le réseau **Irigo (Angers Loire Métropole)** plus simples et plus lisibles, avec un accès centralisé aux informations en temps réel.
 
@@ -91,6 +91,21 @@ Track'Irigo vise à proposer une interface plus directe, centrée sur :
 ---
 
 # 📦 Notes de patch
+
+## 🔖 Version 2.2.3
+
+**Version mobile :**
+
+* Ouvrir une page de ligne depuis l’**Info trafic** ne recharge plus la carte : le véhicule suivi et la position sont conservés
+* La page de ligne s’affiche dans l’application, avec un bouton **‹ Retour** vers la liste des lignes
+* En revenant sur l’onglet Info trafic, on retrouve la page de ligne laissée ouverte ; un nouvel appui sur l’onglet revient à la liste
+* Le bouton retour du téléphone ferme la page de ligne sans quitter le site
+
+**Mise en ligne :**
+
+* Pages, styles et scripts revalidés à chaque visite (`.htaccess` à la racine) : une nouvelle version est prise en compte immédiatement
+
+---
 
 ## 🔖 Version 2.2.2
 

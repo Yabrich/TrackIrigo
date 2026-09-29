@@ -277,5 +277,32 @@ function applyLineIdentity() {
   }
 }
 
+// Page ouverte dans l'application mobile (iframe de l'accueil, ?embed) : l'accueil
+// fournit la barre d'onglets, et « Accueil » devient « Retour » pour revenir à
+// l'info trafic sans recharger la carte.
+function setupEmbeddedMode() {
+  document.documentElement.classList.add('is-embedded');
+  const postToApp = type => window.parent.postMessage({ type }, window.location.origin);
+
+  document.querySelectorAll('.top-bar a[href="../"]').forEach(link => {
+    link.setAttribute('aria-label', 'Retour à l’info trafic');
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      postToApp('trackirigo:close-line');
+    });
+  });
+
+  const homeButton = document.querySelector('.top-bar__link');
+  if (homeButton) {
+    homeButton.textContent = '‹ Retour';
+  }
+
+  postToApp('trackirigo:line-ready');
+}
+
+if (window.parent !== window && new URLSearchParams(window.location.search).has('embed')) {
+  setupEmbeddedMode();
+}
+
 applyLineIdentity();
 loadTraffic();

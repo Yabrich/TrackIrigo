@@ -19,9 +19,11 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="tabbar.css" />
 
-  <!-- Vue mobile affichée (carte par défaut, #trafic pour l'info trafic), posée avant le rendu -->
+  <!-- Vue mobile affichée (carte par défaut, #trafic pour l'info trafic, #trafic/<ligne>
+       pour une page de ligne ouverte par-dessus), posée avant le rendu -->
   <script>
-    document.documentElement.setAttribute('data-view', location.hash === '#trafic' ? 'trafic' : 'carte');
+    document.documentElement.setAttribute('data-view', location.hash.indexOf('#trafic') === 0 ? 'trafic' : 'carte');
+    if (/^#trafic\/./.test(location.hash)) document.documentElement.setAttribute('data-line-open', '');
   </script>
 
   <!-- Mode sombre automatique : lever / coucher du soleil (même logique que la carte) -->
@@ -150,6 +152,9 @@
       </span>
     </footer>
   </div>
+
+  <!-- Mobile : page de ligne ouverte au-dessus de l'info trafic (la carte reste chargée) -->
+  <div class="line-view" id="line-view"></div>
 
   <nav class="tabbar" aria-label="Navigation principale">
     <a class="tabbar__item" href="./" data-view-link="carte">

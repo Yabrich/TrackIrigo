@@ -115,3 +115,13 @@ html.dark-mode {
     border-radius: 12px;
   }
 }
+
+/* Page de ligne ouverte dans l'accueil (classe posée par lines/line.js) :
+   l'accueil affiche déjà sa propre barre d'onglets. */
+html.is-embedded .tabbar {
+  display: none;
+}
+
+html.is-embedded body {
+  padding-bottom: 0;
+}

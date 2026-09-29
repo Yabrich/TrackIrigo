@@ -806,6 +806,44 @@ html.dark-mode .site-footer {
   html[data-view="trafic"] .panel--map {
     visibility: hidden;
   }
+
+  /* Page de ligne ouverte depuis l'info trafic (html[data-line-open]) : elle
+     recouvre la liste et reste en mémoire si l'on passe sur l'onglet Carte. */
+  html[data-line-open] .line-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: var(--tabbar-height);
+    z-index: 40;
+    display: block;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    background: #f2f2f2; /* barre du haut des pages de ligne (toujours en thème clair) */
+  }
+
+  .line-view__frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fffdfd;
+  }
+
+  .line-view__frame.is-loading {
+    visibility: hidden;
+  }
+
+  html[data-view="trafic"][data-line-open] .site-shell {
+    visibility: hidden;
+  }
+
+  html:not([data-view="trafic"]) .line-view {
+    visibility: hidden;
+  }
+}
+
+.line-view {
+  display: none;
 }
 
 /* ============================================= */

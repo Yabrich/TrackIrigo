@@ -1,0 +1,11 @@
+# Track'Irigo (racine du site).
+#
+# Toujours revalider les pages, styles et scripts (réponse 304 s'ils n'ont pas
+# changé) : une nouvelle version est prise en compte dès la visite suivante, et
+# l'accueil ne se retrouve jamais avec une page de ligne d'une ancienne version.
+# map/.htaccess applique la même règle à la carte.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|css|js)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
