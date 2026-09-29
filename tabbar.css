@@ -1,0 +1,117 @@
+/* ============================================= */
+/*  BARRE D'ONGLETS MOBILE (Carte / Info trafic)  */
+/* ============================================= */
+/* Partagée par l'accueil et les pages de ligne. Même requête média que
+   MOBILE_QUERY dans script.js : téléphones en portrait et en paysage. */
+
+:root {
+  --tabbar-height: calc(60px + env(safe-area-inset-bottom, 0px));
+  --tabbar-bg: rgba(255, 255, 255, 0.96);
+  --tabbar-border: #dedede;
+  --tabbar-color: #6b6b6b;
+  --tabbar-active-color: #d61f2c;
+  --tabbar-active-bg: rgba(214, 31, 44, 0.12);
+  --tabbar-icon-map: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M2 6.5l6.5-3 7 3 6.5-3v14l-6.5 3-7-3-6.5 3z'/%3E%3Cpath d='M8.5 3.5v14M15.5 6.5v14'/%3E%3C/svg%3E");
+  --tabbar-icon-traffic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3L1.8 20.5h20.4z'/%3E%3Cpath d='M12 9.5v5M12 17.5v.01'/%3E%3C/svg%3E");
+}
+
+html.dark-mode {
+  --tabbar-bg: rgba(31, 31, 43, 0.97);
+  --tabbar-border: #2c2c3e;
+  --tabbar-color: #9a9aa6;
+  --tabbar-active-color: #ff6b75;
+  --tabbar-active-bg: rgba(255, 107, 117, 0.16);
+}
+
+.tabbar {
+  display: none;
+}
+
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) {
+  body {
+    padding-bottom: var(--tabbar-height);
+  }
+
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    height: var(--tabbar-height);
+    padding: 6px max(12px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(12px, env(safe-area-inset-left, 0px));
+    background: var(--tabbar-bg);
+    border-top: 1px solid var(--tabbar-border);
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.06);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  .tabbar__item {
+    flex: 1;
+    max-width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--tabbar-color);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s ease;
+  }
+
+  .tabbar__icon {
+    width: 56px;
+    height: 28px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease;
+  }
+
+  .tabbar__icon::before {
+    content: '';
+    width: 22px;
+    height: 22px;
+    background-color: currentColor;
+    -webkit-mask: var(--tabbar-icon) center / contain no-repeat;
+    mask: var(--tabbar-icon) center / contain no-repeat;
+  }
+
+  .tabbar__item[data-view-link="carte"] {
+    --tabbar-icon: var(--tabbar-icon-map);
+  }
+
+  .tabbar__item[data-view-link="trafic"] {
+    --tabbar-icon: var(--tabbar-icon-traffic);
+  }
+
+  /* Onglet actif : aria-current sur les pages de ligne, data-view sur l'accueil
+     (posé dans le <head> avant le premier rendu, donc sans clignotement). */
+  .tabbar__item[aria-current="page"],
+  html[data-view="carte"] .tabbar__item[data-view-link="carte"],
+  html[data-view="trafic"] .tabbar__item[data-view-link="trafic"] {
+    color: var(--tabbar-active-color);
+  }
+
+  .tabbar__item[aria-current="page"] .tabbar__icon,
+  html[data-view="carte"] .tabbar__item[data-view-link="carte"] .tabbar__icon,
+  html[data-view="trafic"] .tabbar__item[data-view-link="trafic"] .tabbar__icon {
+    background: var(--tabbar-active-bg);
+  }
+
+  .tabbar__item:focus-visible {
+    outline: 2px solid var(--tabbar-active-color);
+    outline-offset: -2px;
+    border-radius: 12px;
+  }
+}

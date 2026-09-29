@@ -711,3 +711,222 @@ html.dark-mode .site-footer {
     height: 420px;
   }
 }
+
+/* ============================================= */
+/*  VERSION MOBILE : deux vues plein écran        */
+/* ============================================= */
+/* html[data-view] vaut "carte" (par défaut) ou "trafic" ; la barre d'onglets
+   est dans tabbar.css. Même requête média que MOBILE_QUERY dans script.js. */
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Vue "Info trafic" : la page défile dans son propre conteneur. */
+  .site-shell {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: var(--tabbar-height);
+    display: block;
+    min-height: 0;
+    padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .top-bar {
+    padding-top: env(safe-area-inset-top, 0px);
+    min-height: calc(56px + env(safe-area-inset-top, 0px));
+  }
+
+  .panel--carousel {
+    display: none;
+  }
+
+  .panel--traffic {
+    text-align: left;
+  }
+
+  .line-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 10px;
+  }
+
+  .line-button {
+    width: auto;
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  /* Vue "Carte" : l'iframe de la carte occupe tout l'écran au-dessus des onglets.
+     Elle reste rendue (masquée) sur l'autre vue pour garder son état. */
+  .panel--map {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: var(--tabbar-height);
+    z-index: 30;
+    margin: 0;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--color-header-bg);
+  }
+
+  .panel--map .panel__header {
+    display: none;
+  }
+
+  .panel--map .map-preview {
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .panel--map .map-preview__frame {
+    height: 100%;
+  }
+
+  html:not([data-view="trafic"]) .site-shell {
+    visibility: hidden;
+  }
+
+  html:not([data-view="trafic"]) .panel--map {
+    visibility: visible;
+  }
+
+  html[data-view="trafic"] .panel--map {
+    visibility: hidden;
+  }
+}
+
+/* ============================================= */
+/*  POP-UP "AJOUTER À L'ÉCRAN D'ACCUEIL" (iPhone) */
+/* ============================================= */
+.install-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px max(12px, env(safe-area-inset-right, 0px)) calc(var(--tabbar-height, 0px) + 12px) max(12px, env(safe-area-inset-left, 0px));
+  background: rgba(0, 0, 0, 0.35);
+  animation: install-hint-fade 0.2s ease;
+}
+
+.install-hint.is-closing {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.install-hint__card {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 18px 18px 16px;
+  border-radius: 16px;
+  background: var(--color-white);
+  color: var(--color-black);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  animation: install-hint-rise 0.25s ease;
+}
+
+.install-hint__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 32px;
+}
+
+.install-hint__icon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 10px;
+}
+
+.install-hint__title {
+  margin: 0 0 2px;
+  font-size: 17px;
+}
+
+.install-hint__intro {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.install-hint__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.install-hint__steps {
+  margin: 14px 0 16px;
+  padding-left: 22px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.install-hint__steps li + li {
+  margin-top: 6px;
+}
+
+.install-hint__share {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px;
+  vertical-align: -3px;
+  color: #007aff;
+}
+
+.install-hint__ok {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-red);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.install-hint__ok:focus-visible,
+.install-hint__close:focus-visible {
+  outline: 2px solid var(--color-red);
+  outline-offset: 2px;
+}
+
+html.dark-mode .install-hint__share {
+  color: #4da3ff;
+}
+
+@keyframes install-hint-fade {
+  from { opacity: 0; }
+}
+
+@keyframes install-hint-rise {
+  from { transform: translateY(24px); }
+}

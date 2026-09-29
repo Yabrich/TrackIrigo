@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <title>Track'Irigo - Ligne 32</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="icon" href="../icon_site.png" />
   <link rel="stylesheet" href="line.css" />
+  <link rel="stylesheet" href="../tabbar.css" />
 </head>
 <body>
   <header class="top-bar">
@@ -66,6 +67,17 @@
         Les données en temps réel (informations trafic et prochains passages) proviennent de <a href="https://transport.data.gouv.fr/datasets/angers-loire-metropole-reseau-irigo-gtfs-gtfs-rt-siri" target="_blank" rel="noreferrer">l’Open-Data Réseau urbain Irigo</a>
       </span>
     </footer>
+
+  <nav class="tabbar" aria-label="Navigation principale">
+    <a class="tabbar__item" href="../" data-view-link="carte">
+      <span class="tabbar__icon" aria-hidden="true"></span>
+      <span>Carte</span>
+    </a>
+    <a class="tabbar__item" href="../#trafic" data-view-link="trafic" aria-current="page">
+      <span class="tabbar__icon" aria-hidden="true"></span>
+      <span>Info trafic</span>
+    </a>
+  </nav>
 
   <script>
     window.TRACK_IRIGO_LINE_PAGE = { lineId: '32' };

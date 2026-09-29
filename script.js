@@ -100,8 +100,17 @@ const stationCount = document.getElementById('station-count');
 const lineCategoriesContainer = document.getElementById('line-categories');
 const carouselTrack = document.getElementById('carousel-track');
 
+// Même requête média que dans style.css et tabbar.css.
+const MOBILE_QUERY = '(max-width: 767px), (pointer: coarse) and (max-height: 500px)';
+const mobileMedia = window.matchMedia(MOBILE_QUERY);
+const siteShell = document.querySelector('.site-shell');
+const viewLinks = document.querySelectorAll('[data-view-link]');
+const TRAFFIC_REFRESH_MS = 5 * 60 * 1000;
+const INSTALL_HINT_STORAGE_KEY = 'trackirigo:install-hint-shown';
+
 let stationIndex = [];
 const lineTrafficState = new Map();
+let lastTrafficRequestAt = 0;
 let carouselImages = [];
 let carouselIndex = 0;
 let carouselIntervalId = null;
@@ -493,6 +502,7 @@ async function loadStationsV2() {
 }
 
 async function loadTrafficInfo() {
+  lastTrafficRequestAt = Date.now();
   try {
     const response = await fetch('https://web-production-c4b0.up.railway.app/irigo.json');
     //const response = await fetch('http://localhost:5000/irigo.json');
@@ -509,10 +519,127 @@ async function loadTrafficInfo() {
   }
 }
 
-loadCarousel();
+// ==================================
+// VERSION MOBILE : vues "Carte" / "Info trafic"
+// ==================================
+function getViewFromHash() {
+  return window.location.hash === '#trafic' ? 'trafic' : 'carte';
+}
+
+function setView(view) {
+  document.documentElement.setAttribute('data-view', view);
+  viewLinks.forEach(link => {
+    if (link.dataset.viewLink === view) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+
+  // Une web app reste ouverte longtemps : on rafraîchit l'info trafic si elle date.
+  if (view === 'trafic' && Date.now() - lastTrafficRequestAt > TRAFFIC_REFRESH_MS) {
+    loadTrafficInfo();
+  }
+}
+
+viewLinks.forEach(link => {
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    const view = link.dataset.viewLink;
+    if (view === document.documentElement.getAttribute('data-view')) {
+      if (view === 'trafic' && siteShell) siteShell.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    // replaceState : changer d'onglet n'empile pas d'historique, mais un retour
+    // depuis une page de ligne ramène bien sur l'info trafic.
+    const url = view === 'trafic' ? '#trafic' : window.location.pathname + window.location.search;
+    window.history.replaceState(null, '', url);
+    setView(view);
+  });
+});
+
+window.addEventListener('hashchange', () => setView(getViewFromHash()));
+
+// Le carrousel n'existe pas en version mobile : ses photos ne sont chargées
+// que lorsque la mise en page ordinateur est affichée.
+function loadCarouselOnDesktop() {
+  if (!mobileMedia.matches) {
+    loadCarousel();
+    return;
+  }
+  mobileMedia.addEventListener('change', function onMediaChange(event) {
+    if (event.matches) return;
+    mobileMedia.removeEventListener('change', onMediaChange);
+    loadCarousel();
+  });
+}
+
+// ==================================
+// IPHONE : ajout à l'écran d'accueil (affiché une seule fois)
+// ==================================
+function isStandaloneApp() {
+  return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+}
+
+function closeInstallHint(hint) {
+  hint.classList.add('is-closing');
+  window.setTimeout(() => hint.remove(), 180);
+}
+
+function showInstallHint() {
+  const hint = document.createElement('div');
+  hint.className = 'install-hint';
+  hint.setAttribute('role', 'dialog');
+  hint.setAttribute('aria-modal', 'true');
+  hint.setAttribute('aria-labelledby', 'install-hint-title');
+  hint.innerHTML = `
+    <div class="install-hint__card">
+      <button type="button" class="install-hint__close" data-install-hint-close aria-label="Fermer">&times;</button>
+      <div class="install-hint__head">
+        <img class="install-hint__icon" src="img/apple-touch-icon.png" alt="" />
+        <div>
+          <h2 id="install-hint-title" class="install-hint__title">Installez Track'Irigo</h2>
+          <p class="install-hint__intro">Ouvrez-le en plein écran, comme une app.</p>
+        </div>
+      </div>
+      <ol class="install-hint__steps">
+        <li>Touchez <svg class="install-hint__share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M8 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-2"/></svg><strong>Partager</strong> (via « ••• » si besoin)</li>
+        <li>Choisissez <strong>Sur l'écran d'accueil</strong></li>
+        <li>Laissez l'option <strong>app web</strong> activée, puis <strong>Ajouter</strong></li>
+      </ol>
+      <button type="button" class="install-hint__ok" data-install-hint-close>J'ai compris</button>
+    </div>`;
+
+  hint.addEventListener('click', event => {
+    if (event.target === hint || event.target.closest('[data-install-hint-close]')) {
+      closeInstallHint(hint);
+    }
+  });
+  hint.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeInstallHint(hint);
+  });
+
+  document.body.appendChild(hint);
+  hint.querySelector('.install-hint__ok').focus({ preventScroll: true });
+}
+
+function maybeShowInstallHint() {
+  if (!/iPhone|iPod/.test(navigator.userAgent) || isStandaloneApp()) return;
+  try {
+    if (window.localStorage.getItem(INSTALL_HINT_STORAGE_KEY)) return;
+    window.localStorage.setItem(INSTALL_HINT_STORAGE_KEY, '1');
+  } catch (error) {
+    return; // sans stockage, on ne peut pas garantir un affichage unique
+  }
+  window.setTimeout(showInstallHint, 1200);
+}
+
+loadCarouselOnDesktop();
 renderLineCategories();
 loadStationsV2();
 loadTrafficInfo();
+setView(getViewFromHash());
+maybeShowInstallHint();
 
 if (stationSearchInput) {
   stationSearchInput.addEventListener('input', event => {

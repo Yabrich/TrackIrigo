@@ -445,3 +445,16 @@ a {
     height: 420px;
   }
 }
+
+/* Version mobile (même requête que tabbar.css) : zones sûres de l'iPhone */
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) {
+  body {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .top-bar {
+    padding-top: env(safe-area-inset-top, 0px);
+    min-height: calc(56px + env(safe-area-inset-top, 0px));
+  }
+}

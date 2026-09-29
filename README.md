@@ -1,6 +1,6 @@
 # 🌍 Track'Irigo — Carte temps réel Irigo
 
-![Version](https://img.shields.io/badge/version-2.2.1-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.2.2-blue?style=for-the-badge)
 
 Une carte interactive pensée pour rendre les déplacements sur le réseau **Irigo (Angers Loire Métropole)** plus simples et plus lisibles, avec un accès centralisé aux informations en temps réel.
 
@@ -75,10 +75,10 @@ Track'Irigo vise à proposer une interface plus directe, centrée sur :
 * Affichage des perturbations en cours
 * Mise en évidence des impacts réseau (retards, interruptions, déviations)
 
-### ~~📄 Pages dédiées aux lignes~~
+### 📄 Pages dédiées aux lignes
 
-* ~~Une page par ligne~~
-* ~~Vue plus claire des informations spécifiques (trajet, desserte, etc.)~~
+* Une page par ligne
+* Vue plus claire des informations spécifiques (trajet, desserte, etc.)
 
 ### ~~⏱️ Prochains passages en temps réel~~
 
@@ -91,6 +91,28 @@ Track'Irigo vise à proposer une interface plus directe, centrée sur :
 ---
 
 # 📦 Notes de patch
+
+## 🔖 Version 2.2.2
+
+**Version mobile :**
+
+* La **carte s’affiche directement en plein écran** à l’ouverture du site sur téléphone
+* Deuxième page **Info trafic** (lignes et perturbations), sans le carrousel photo
+* **Menu permanent en bas de l’écran** pour passer de l’une à l’autre, avec la page actuelle mise en couleur (également présent sur les pages de ligne)
+* Changement de page instantané : la carte n’est pas rechargée (zoom et véhicule suivi conservés)
+* Info trafic actualisée au retour sur la page si elle date de plus de 5 minutes
+* Photos du carrousel non téléchargées sur mobile
+
+**Web app (iPhone) :**
+
+* Petit pop-up, affiché uniquement lors de la première visite, expliquant comment ajouter le site à l’écran d’accueil en tant qu’app web
+* Icône d’écran d’accueil et manifeste : une fois ajouté, le site s’ouvre en plein écran, comme une application
+
+**Correction :**
+
+* Le logo de la carte intégrée à l’accueil n’ouvre plus l’accueil à l’intérieur de la carte
+
+---
 
 ## 🔖 Version 2.2.1
 

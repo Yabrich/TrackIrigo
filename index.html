@@ -3,10 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <title>Track'Irigo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f2f2f2" />
   <link rel="icon" href="icon_site.png" />
+
+  <!-- Ajout à l'écran d'accueil : le site s'ouvre alors comme une application -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Track'Irigo" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="tabbar.css" />
+
+  <!-- Vue mobile affichée (carte par défaut, #trafic pour l'info trafic), posée avant le rendu -->
+  <script>
+    document.documentElement.setAttribute('data-view', location.hash === '#trafic' ? 'trafic' : 'carte');
+  </script>
 
   <!-- Mode sombre automatique : lever / coucher du soleil (même logique que la carte) -->
   <script src="https://unpkg.com/suncalc@1.8.0/suncalc.js"></script>
@@ -39,6 +55,8 @@
         var now = new Date();
         var night = isNight(now);
         document.documentElement.classList.toggle('dark-mode', night);
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute('content', night ? '#1f1f2b' : '#f2f2f2');
         window.clearTimeout(timer);
         timer = window.setTimeout(apply, msUntilNextSwitch(now, night));
       }
@@ -65,7 +83,7 @@
         </div>
       </section>
 
-      <section class="panel panel--wide" aria-labelledby="panel-carte-title">
+      <section class="panel panel--wide panel--map" aria-labelledby="panel-carte-title">
         <div class="panel__header">
           <div>
             <div class="panel__eyebrow">Carte</div>
@@ -114,7 +132,7 @@
 <!--        <div class="station-results" id="station-results" aria-live="polite"></div>-->
 <!--      </section>-->
 
-      <section class="panel panel--wide" aria-labelledby="panel-lignes-title">
+      <section class="panel panel--wide panel--traffic" aria-labelledby="panel-lignes-title">
         <div class="panel__header">
           <div>
             <div class="panel__eyebrow">Lignes</div>
@@ -132,6 +150,17 @@
       </span>
     </footer>
   </div>
+
+  <nav class="tabbar" aria-label="Navigation principale">
+    <a class="tabbar__item" href="./" data-view-link="carte">
+      <span class="tabbar__icon" aria-hidden="true"></span>
+      <span>Carte</span>
+    </a>
+    <a class="tabbar__item" href="#trafic" data-view-link="trafic">
+      <span class="tabbar__icon" aria-hidden="true"></span>
+      <span>Info trafic</span>
+    </a>
+  </nav>
 
   <script type="module" src="script.js"></script>
 </body>
